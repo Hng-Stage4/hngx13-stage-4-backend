@@ -1,0 +1,34 @@
+http:
+  middlewares:
+    # IP Whitelist (for admin endpoints)
+    admin-whitelist:
+      ipWhiteList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "192.168.0.0/16"
+          - "10.0.0.0/8"
+    
+    # Compress responses
+    compress:
+      compress: {}
+    
+    # Strip prefix (if needed)
+    strip-api-prefix:
+      stripPrefix:
+        prefixes:
+          - "/api/v1"
+    
+    # Retry middleware
+    retry:
+      attempts: 3
+      initialInterval: 100ms
+    
+    # Circuit breaker
+    circuit-breaker:
+      expression: "NetworkErrorRatio() > 0.5"
+    
+    # Basic auth (for development/testing)
+    basic-auth:
+      basicAuth:
+        users:
+          - "admin:$apr1$H6uskkkW$IgXLP6ewTrSuBkTrqE8wj/"  # admin:admin
