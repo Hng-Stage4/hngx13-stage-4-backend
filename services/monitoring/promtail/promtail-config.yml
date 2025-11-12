@@ -1,0 +1,169 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker-containers
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: label
+            values: ["logging=promtail"]
+    
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'container'
+      
+      - source_labels: ['__meta_docker_container_label_service']
+        target_label: 'service'
+      
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        target_label: 'compose_service'
+      
+      - source_labels: ['__meta_docker_container_id']
+        target_label: 'container_id'
+        regex: '(.{12})'
+      
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
+        target_label: 'project'
+
+    pipeline_stages:
+      # API Gateway Service
+      - match:
+          selector: '{container="api-gateway"}'
+          stages:
+            - regex:
+                expression: '^\[(?P<laravel_timestamp>[^\]]+)\] (?P<laravel_env>\w+)\.(?P<laravel_level>\w+): (?P<json_content>\{.*\})'
+            - json:
+                source: json_content
+                expressions:
+                  timestamp: timestamp
+                  level: level
+                  service_name: service_name
+                  correlation_id: correlation_id
+                  event: event
+                  msg: message
+            - labels:
+                level:
+                service_name:
+                event:
+            - timestamp:
+                source: timestamp
+                format: RFC3339
+            - output:
+                source: msg
+
+      # User Service
+      - match:
+          selector: '{container="user-service"}'
+          stages:
+            - regex:
+                expression: '^\[(?P<laravel_timestamp>[^\]]+)\] (?P<laravel_env>\w+)\.(?P<laravel_level>\w+): (?P<json_content>\{.*\})'
+            - json:
+                source: json_content
+                expressions:
+                  timestamp: timestamp
+                  level: level
+                  service_name: service_name
+                  correlation_id: correlation_id
+                  event: event
+                  msg: message
+            - labels:
+                level:
+                service_name:
+                event:
+            - timestamp:
+                source: timestamp
+                format: RFC3339
+            - output:
+                source: msg
+
+      # Email Service
+      - match:
+          selector: '{container="email-service"}'
+          stages:
+            - regex:
+                expression: '^\[(?P<laravel_timestamp>[^\]]+)\] (?P<laravel_env>\w+)\.(?P<laravel_level>\w+): (?P<json_content>\{.*\})'
+            - json:
+                source: json_content
+                expressions:
+                  timestamp: timestamp
+                  level: level
+                  service_name: service_name
+                  correlation_id: correlation_id
+                  event: event
+                  msg: message
+            - labels:
+                level:
+                service_name:
+                event:
+            - timestamp:
+                source: timestamp
+                format: RFC3339
+            - output:
+                source: msg
+
+      # Push Service
+      - match:
+          selector: '{container="push-service"}'
+          stages:
+            - regex:
+                expression: '^\[(?P<laravel_timestamp>[^\]]+)\] (?P<laravel_env>\w+)\.(?P<laravel_level>\w+): (?P<json_content>\{.*\})'
+            - json:
+                source: json_content
+                expressions:
+                  timestamp: timestamp
+                  level: level
+                  service_name: service_name
+                  correlation_id: correlation_id
+                  event: event
+                  msg: message
+            - labels:
+                level:
+                service_name:
+                event:
+            - timestamp:
+                source: timestamp
+                format: RFC3339
+            - output:
+                source: msg
+
+      # Template Service
+      - match:
+          selector: '{container="template-service"}'
+          stages:
+            - regex:
+                expression: '^\[(?P<laravel_timestamp>[^\]]+)\] (?P<laravel_env>\w+)\.(?P<laravel_level>\w+): (?P<json_content>\{.*\})'
+            - json:
+                source: json_content
+                expressions:
+                  timestamp: timestamp
+                  level: level
+                  service_name: service_name
+                  correlation_id: correlation_id
+                  event: event
+                  msg: message
+            - labels:
+                level:
+                service_name:
+                event:
+            - timestamp:
+                source: timestamp
+                format: RFC3339
+            - output:
+                source: msg
+
+      # Catch-all for other services (plain logs)
+      - match:
+          selector: '{container=~".+"}'
+          stages:
+            - output:
+                source: __line__
