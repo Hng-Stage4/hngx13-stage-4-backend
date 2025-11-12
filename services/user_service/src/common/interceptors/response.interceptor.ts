@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Injectable,
   NestInterceptor,
@@ -23,6 +25,13 @@ export class ResponseInterceptor<T>
     context: ExecutionContext,
     next: CallHandler,
   ): Observable<StandardResponse<T>> {
+    const request = context.switchToHttp().getRequest();
+
+    // Skip metrics endpoint (uses @Res() and returns raw text)
+    if (request.path === '/api/metrics') {
+      return next.handle() as Observable<StandardResponse<T>>;
+    }
+
     return next.handle().pipe(
       map((data) => {
         // If response is already in standard format, return as is

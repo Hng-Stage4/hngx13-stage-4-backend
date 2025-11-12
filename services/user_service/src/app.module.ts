@@ -9,6 +9,7 @@ import { UsersModule } from './users/users.module';
 import { PreferencesModule } from './preferences/preferences.module';
 import { RateLimitModule } from './rate-limit/rate-limit.module';
 import { HealthModule } from './health/health.module';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
@@ -25,6 +26,8 @@ import { HealthModule } from './health/health.module';
     RateLimitModule,
     // Health check
     HealthModule,
+    // Metrics
+    MetricsModule,
     // Feature modules
     UsersModule,
     PreferencesModule,
