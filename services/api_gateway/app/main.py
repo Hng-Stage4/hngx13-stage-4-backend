@@ -1,116 +1,93 @@
-"""
-API Gateway - Main Application
-Handles routing, authentication, and message queuing
-"""
-from fastapi import FastAPI, Request, status
+# ============================================
+# api-gateway/app/main.py
+# ============================================
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
-from contextlib import asynccontextmanager
+import uvicorn
 import logging
 
-from app.routes import auth, notifications, health, status as status_routes
-from app.queue.rabbitmq import init_rabbitmq, close_rabbitmq
-from app.utils.logger import setup_logging
-from app.utils.exceptions import APIException
-from app.config import get_settings
+from app.config.settings import settings
+from app.routers import notification, health, status
+from app.middleware.correlation_id import CorrelationIdMiddleware
+from app.middleware.error_handler import ErrorHandlerMiddleware
+from app.middleware.rate_limiter import RateLimiterMiddleware
+from app.utils.logger import setup_logger
 
-# Setup logging
-logger = setup_logging()
-settings = get_settings()
+# Setup logger
+logger = setup_logger(__name__)
 
-# Lifespan context manager for startup/shutdown
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Handle startup and shutdown events"""
-    # Startup
-    logger.info("🚀 Starting API Gateway...")
-    await init_rabbitmq()
-    logger.info("✅ RabbitMQ connection established")
-    
-    yield
-    
-    # Shutdown
-    logger.info("🛑 Shutting down API Gateway...")
-    await close_rabbitmq()
-    logger.info("✅ Cleanup completed")
-
-# Create FastAPI app
+# Initialize FastAPI app
 app = FastAPI(
-    title="Notification System API Gateway",
-    description="API Gateway for distributed notification system",
+    title="Notification API Gateway",
+    description="Distributed Notification System - API Gateway",
     version="1.0.0",
-    docs_url="/api/v1/docs" if settings.debug else None,
-    redoc_url="/api/v1/redoc" if settings.debug else None,
-    lifespan=lifespan
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
 )
 
-# CORS Middleware
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure properly in production
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Trusted Host Middleware (security)
-if not settings.debug:
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=["localhost", "127.0.0.1", settings.production_host]
-    )
-
-# Exception handlers
-@app.exception_handler(APIException)
-async def api_exception_handler(request: Request, exc: APIException):
-    """Handle custom API exceptions"""
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "success": False,
-            "error": exc.error,
-            "message": exc.message,
-            "data": None
-        }
-    )
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """Handle all unhandled exceptions"""
-    logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "success": False,
-            "error": "internal_server_error",
-            "message": "An unexpected error occurred",
-            "data": None
-        }
-    )
+# Add custom middleware
+app.add_middleware(CorrelationIdMiddleware)
+app.add_middleware(ErrorHandlerMiddleware)
+app.add_middleware(RateLimiterMiddleware)
 
 # Include routers
-app.include_router(health.router, prefix="", tags=["Health"])
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
-app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["Notifications"])
-app.include_router(status_routes.router, prefix="/api/v1/status", tags=["Status"])
+app.include_router(health.router, prefix="/api/v1", tags=["Health"])
+app.include_router(notification.router, prefix="/api/v1", tags=["Notifications"])
+app.include_router(status.router, prefix="/api/v1", tags=["Status"])
 
-# Root endpoint
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup"""
+    logger.info("Starting API Gateway...")
+    # Initialize RabbitMQ connection
+    from app.config.rabbitmq import rabbitmq_manager
+    await rabbitmq_manager.connect()
+    
+    # Initialize Redis connection
+    from app.config.redis import redis_manager
+    await redis_manager.connect()
+    
+    logger.info("API Gateway started successfully")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    logger.info("Shutting down API Gateway...")
+    from app.config.rabbitmq import rabbitmq_manager
+    await rabbitmq_manager.disconnect()
+    
+    from app.config.redis import redis_manager
+    await redis_manager.disconnect()
+    
+    logger.info("API Gateway shutdown complete")
+
+
 @app.get("/")
 async def root():
-    """Root endpoint"""
     return {
-        "success": True,
-        "message": "Notification System API Gateway",
+        "service": "Notification API Gateway",
         "version": "1.0.0",
-        "docs": "/api/v1/docs" if settings.debug else None
+        "status": "running"
     }
 
-# Request logging middleware
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    """Log all incoming requests"""
-    logger.info(f"📥 {request.method} {request.url.path}")
-    response = await call_next(request)
-    logger.info(f"📤 {request.method} {request.url.path} - Status: {response.status_code}")
-    return response
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "app.main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.DEBUG,
+        log_level="info"
+    )
