@@ -22,6 +22,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      email-service:
+        condition: service_started
+      template-service:
+        condition: service_started
     volumes:
       - ./services/api_gateway:/app
     networks:
@@ -84,6 +88,65 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - notification-network
+    restart: unless-stopped
+
+  # Email Service
+  email-service:
+    build:
+      context: ./services/email_service
+      dockerfile: Dockerfile
+    container_name: email-service
+    ports:
+      - "8001:8001"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - REDIS_HOST=redis
+      - TEMPLATE_SERVICE_URL=http://template-service:8003
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=587
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+      - MAILGUN_API_KEY=${MAILGUN_API_KEY:-}
+      - MAILGUN_DOMAIN=${MAILGUN_DOMAIN:-}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      template-service:
+        condition: service_started
+    volumes:
+      - ./services/email_service:/app
+    networks:
+      - notification-network
+    restart: unless-stopped
+
+  # Template Service
+  template-service:
+    build:
+      context: ./services/template_service
+      dockerfile: Dockerfile
+    container_name: template-service
+    ports:
+      - "8003:8003"
+    environment:
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=admin
+      - DATABASE_PASSWORD=secret
+      - DATABASE_NAME=notifications
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/template_service:/app
     networks:
       - notification-network
     restart: unless-stopped

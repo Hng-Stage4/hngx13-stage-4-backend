@@ -8,7 +8,7 @@ import uvicorn
 import logging
 
 from app.config.settings import settings
-from app.routers import notification, health, status
+from app.routers import notification, health, status, template
 from app.middleware.correlation_id import CorrelationIdMiddleware
 from app.middleware.error_handler import ErrorHandlerMiddleware
 from app.middleware.rate_limiter import RateLimiterMiddleware
@@ -44,6 +44,7 @@ app.add_middleware(RateLimiterMiddleware)
 app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 app.include_router(notification.router, prefix="/api/v1", tags=["Notifications"])
 app.include_router(status.router, prefix="/api/v1", tags=["Status"])
+app.include_router(template.router, prefix="/api/v1", tags=["Templates"])
 
 
 @app.on_event("startup")
