@@ -1,0 +1,132 @@
+http:
+  # Routers
+  routers:
+    # API Gateway Router
+    api-gateway:
+      rule: "PathPrefix(`/api/v1`)"
+      service: api-gateway-service
+      middlewares:
+        - auth-check
+        - rate-limit
+        - cors-headers
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+    
+    # User Service Router
+    user-service:
+      rule: "PathPrefix(`/api/v1/users`)"
+      service: user-service
+      middlewares:
+        - auth-check
+      entryPoints:
+        - websecure
+    
+    # Template Service Router
+    template-service:
+      rule: "PathPrefix(`/api/v1/templates`)"
+      service: template-service
+      middlewares:
+        - auth-check
+      entryPoints:
+        - websecure
+    
+    # Health Check Router (No Auth)
+    health-check:
+      rule: "PathPrefix(`/health`) || PathPrefix(`/api/v1/health`)"
+      service: api-gateway-service
+      entryPoints:
+        - web
+        - websecure
+
+  # Services (Backend definitions)
+  services:
+    api-gateway-service:
+      loadBalancer:
+        servers:
+          - url: "http://api_gateway:8000"
+        healthCheck:
+          path: /health
+          interval: 30s
+          timeout: 3s
+    
+    user-service:
+      loadBalancer:
+        servers:
+          - url: "http://user_service:8001"
+        healthCheck:
+          path: /health
+          interval: 30s
+    
+    template-service:
+      loadBalancer:
+        servers:
+          - url: "http://template_service:8002"
+        healthCheck:
+          path: /health
+          interval: 30s
+
+  # Middlewares
+  middlewares:
+    # Authentication middleware
+    auth-check:
+      forwardAuth:
+        address: "http://api_gateway:8000/api/v1/auth/verify"
+        authResponseHeaders:
+          - "X-User-Id"
+          - "X-User-Role"
+          - "X-User-Email"
+        trustForwardHeader: true
+    
+    # Rate limiting
+    rate-limit:
+      rateLimit:
+        average: 100
+        period: 1m
+        burst: 50
+    
+    # CORS headers
+    cors-headers:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - PATCH
+          - OPTIONS
+        accessControlAllowOriginList:
+          - "*"
+        accessControlAllowHeaders:
+          - "*"
+        accessControlExposeHeaders:
+          - "*"
+        accessControlMaxAge: 100
+        addVaryHeader: true
+    
+    # Security headers
+    security-headers:
+      headers:
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        customFrameOptionsValue: "SAMEORIGIN"
+
+# TCP routers (for RabbitMQ Management, if needed)
+tcp:
+  routers:
+    rabbitmq-management:
+      rule: "HostSNI(`*`)"
+      service: rabbitmq-management-service
+      entryPoints:
+        - rabbitmq
+  
+  services:
+    rabbitmq-management-service:
+      loadBalancer:
+        servers:
+          - address: "rabbitmq:15672"
