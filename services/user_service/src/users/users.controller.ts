@@ -25,6 +25,11 @@ import { UpdateContactInfoDto } from './dto/update-contact-info.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { JwtPayload } from '../auth/jwt.service';
 import { StandardResponseDto } from '../common/dto/standard-response.dto';
+import { RateLimit, RateLimitGuard } from '../rate-limit/rate-limit.guard';
+import {
+  IpRateLimit,
+  IpRateLimitGuard,
+} from '../rate-limit/ip-rate-limit.guard';
 
 interface AuthenticatedRequest extends Request {
   user?: JwtPayload;
@@ -33,7 +38,10 @@ interface AuthenticatedRequest extends Request {
 @ApiTags('users')
 @ApiBearerAuth('JWT-auth')
 @Controller('users')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, IpRateLimitGuard) // IP rate limit for all user endpoints
+@IpRateLimit({ limit: 1000, ttl: 60 }) // 1000 requests per minute per IP
+@UseGuards(RateLimitGuard) // User-based rate limit
+@RateLimit({ limit: 100, ttl: 60 }) // 100 requests per minute per user
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 

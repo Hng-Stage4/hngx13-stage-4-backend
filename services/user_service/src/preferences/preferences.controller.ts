@@ -24,6 +24,11 @@ import { PreferenceResponseDto } from './dto/preference-response.dto';
 import { JwtPayload } from '../auth/jwt.service';
 import { UsersService } from '../users/users.service';
 import { StandardResponseDto } from '../common/dto/standard-response.dto';
+import { RateLimit, RateLimitGuard } from '../rate-limit/rate-limit.guard';
+import {
+  IpRateLimit,
+  IpRateLimitGuard,
+} from '../rate-limit/ip-rate-limit.guard';
 
 interface AuthenticatedRequest extends Request {
   user?: JwtPayload;
@@ -31,6 +36,8 @@ interface AuthenticatedRequest extends Request {
 
 @ApiTags('preferences')
 @Controller('users/:id/preferences')
+@UseGuards(IpRateLimitGuard) // IP rate limit for all preference endpoints
+@IpRateLimit({ limit: 1000, ttl: 60 }) // 1000 requests per minute per IP
 export class PreferencesController {
   constructor(
     private readonly preferencesService: PreferencesService,
@@ -43,6 +50,8 @@ export class PreferencesController {
    * Can be accessed without auth (for Email/Push services via API Gateway)
    */
   @Get()
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 50, ttl: 60 }) // 50 requests per minute (IP-based since no auth)
   @ApiOperation({ summary: 'Get user preferences' })
   @ApiParam({
     name: 'id',
@@ -75,7 +84,8 @@ export class PreferencesController {
    * Protected - user can only update their own preferences
    */
   @Put()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RateLimitGuard)
+  @RateLimit({ limit: 50, ttl: 60 }) // 50 requests per minute per user
   @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update user preferences' })
@@ -127,4 +137,3 @@ export class PreferencesController {
     };
   }
 }
-

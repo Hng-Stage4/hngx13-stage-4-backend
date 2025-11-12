@@ -21,13 +21,22 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { TokenResponseDto } from './dto/token-response.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { StandardResponseDto } from '../common/dto/standard-response.dto';
+import { RateLimit, RateLimitGuard } from '../rate-limit/rate-limit.guard';
+import {
+  IpRateLimit,
+  IpRateLimitGuard,
+} from '../rate-limit/ip-rate-limit.guard';
 
 @ApiTags('auth')
 @Controller('auth')
+@UseGuards(IpRateLimitGuard) // Global IP rate limit for all auth endpoints
+@IpRateLimit({ limit: 1000, ttl: 60 }) // 1000 requests per minute per IP
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 5, ttl: 60 }) // 5 requests per minute
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({
@@ -52,6 +61,8 @@ export class AuthController {
   }
 
   @Post('login')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 5, ttl: 60 }) // 5 requests per minute
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login user and get access tokens' })
   @ApiResponse({
@@ -74,6 +85,8 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 10, ttl: 60 }) // 10 requests per minute
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token using refresh token' })
   @ApiResponse({

@@ -7,6 +7,7 @@ import { CacheModule } from './cache/cache.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { PreferencesModule } from './preferences/preferences.module';
+import { RateLimitModule } from './rate-limit/rate-limit.module';
 
 @Module({
   imports: [
@@ -19,6 +20,8 @@ import { PreferencesModule } from './preferences/preferences.module';
     DatabaseModule,
     // Redis cache
     CacheModule,
+    // Rate limiting (global module)
+    RateLimitModule,
     // Feature modules
     UsersModule,
     PreferencesModule,
