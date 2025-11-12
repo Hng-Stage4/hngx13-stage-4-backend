@@ -1,0 +1,24 @@
+# Development Dockerfile with watch mode support
+FROM node:20-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Copy package files
+COPY package.json pnpm-lock.yaml ./
+
+# Install ALL dependencies (including dev dependencies for watch mode)
+RUN pnpm install --frozen-lockfile
+
+# Copy source code (will be overridden by volume mount, but needed for initial build)
+COPY . .
+
+# Expose port
+EXPOSE 3001
+
+# Run in watch mode for hot reload
+CMD ["pnpm", "run", "start:dev"]
+
