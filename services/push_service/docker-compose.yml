@@ -1,6 +1,8 @@
 networks:
-  test-network:
+  push-network:
     driver: bridge
+  notification_network:
+    external: true 
 
 volumes:
   postgres-data:
@@ -10,7 +12,7 @@ volumes:
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: test-postgres
+    container_name: push-postgres
     env_file:
       - .env
     environment:
@@ -22,7 +24,7 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     networks:
-      - test-network
+      - push-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
       interval: 5s
@@ -31,11 +33,11 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: test-redis
+    container_name: push-redis
     ports:
       - "${REDIS_PORT:-6379}:6379"
     networks:
-      - test-network
+      - push-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -44,7 +46,7 @@ services:
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
-    container_name: test-rabbitmq
+    container_name: push-rabbitmq
     env_file:
       - .env
     environment:
@@ -54,7 +56,8 @@ services:
       - "${RABBITMQ_PORT:-5672}:5672"
       - "${RABBITMQ_MGMT_PORT:-15672}:15672"
     networks:
-      - test-network
+      - push-network
+      - notification_network 
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -65,7 +68,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: test-push-service
+    container_name: push-service
     env_file:
       - .env
     environment:
@@ -81,12 +84,17 @@ services:
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
       API_GATEWAY_URL: ${API_GATEWAY_URL}
     ports:
-      - "${PUSH_SERVICE_PORT:-8000}:8000"
+      - "${APP_PORT:-8000}:8000"
+    labels:
+      logging: "promtail"
+      service: "push-service"
     volumes:
       - ./:/var/www
+      - ./logs:/app/logs 
       - ./firebase-credentials.json:/var/www/firebase-credentials.json:ro
     networks:
-      - test-network
+      - push-network
+      - notification_network 
     depends_on:
       postgres:
         condition: service_healthy
