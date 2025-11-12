@@ -4,6 +4,9 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { CacheModule } from './cache/cache.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { PreferencesModule } from './preferences/preferences.module';
 
 @Module({
   imports: [
@@ -16,6 +19,10 @@ import { CacheModule } from './cache/cache.module';
     DatabaseModule,
     // Redis cache
     CacheModule,
+    // Feature modules
+    UsersModule,
+    PreferencesModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

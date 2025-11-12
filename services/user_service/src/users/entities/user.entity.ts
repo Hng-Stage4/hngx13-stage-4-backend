@@ -19,15 +19,13 @@ import {
 import { UserPreference } from '../../preferences/entities/preference.entity';
 
 @Entity('users')
-@Index(['email'], { unique: true })
-@Index(['active'])
+@Index(['active']) // Keep only the index on 'active' here
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column({ type: 'varchar', length: 255, unique: true })
   @IsEmail()
-  @Index()
   email: string;
 
   @Column({ type: 'varchar', length: 100 })
