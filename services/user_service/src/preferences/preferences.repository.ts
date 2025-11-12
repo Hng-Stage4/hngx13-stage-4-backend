@@ -65,6 +65,13 @@ export class PreferencesRepository {
   }
 
   /**
+   * Delete preferences by user ID
+   */
+  async deleteByUserId(userId: string): Promise<void> {
+    await this.preferenceRepository.delete({ user_id: userId });
+  }
+
+  /**
    * Get repository instance (for advanced queries if needed)
    */
   getRepository(): Repository<UserPreference> {

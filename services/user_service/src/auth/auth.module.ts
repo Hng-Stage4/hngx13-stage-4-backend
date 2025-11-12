@@ -13,6 +13,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { UsersModule } from '../users/users.module';
 import { PreferencesModule } from '../preferences/preferences.module';
 import { CacheModule } from '../cache/cache.module';
+import { forwardRef } from '@nestjs/common';
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ import { CacheModule } from '../cache/cache.module';
       },
       inject: [ConfigService],
     }),
-    UsersModule,
+    forwardRef(() => UsersModule),
     PreferencesModule,
     CacheModule,
   ],
@@ -44,6 +45,12 @@ import { CacheModule } from '../cache/cache.module';
     JwtStrategy,
     JwtAuthGuard,
   ],
-  exports: [AuthService, JwtAuthGuard, JwtStrategy],
+  exports: [
+    AuthService,
+    JwtAuthGuard,
+    JwtStrategy,
+    PasswordService,
+    TokenBlacklistService,
+  ],
 })
 export class AuthModule {}

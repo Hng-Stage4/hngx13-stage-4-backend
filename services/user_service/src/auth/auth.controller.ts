@@ -7,19 +7,36 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiBody,
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { TokenResponseDto } from './dto/token-response.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { StandardResponseDto } from '../common/dto/standard-response.dto';
 
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register a new user' })
+  @ApiResponse({
+    status: 201,
+    description: 'User registered successfully',
+    type: StandardResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiResponse({ status: 409, description: 'User already exists' })
   async register(@Body() dto: RegisterDto) {
     const user = await this.authService.register(dto);
     return {
@@ -36,6 +53,13 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login user and get access tokens' })
+  @ApiResponse({
+    status: 200,
+    description: 'Login successful',
+    type: StandardResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(@Body() dto: LoginDto): Promise<{
     success: boolean;
     message: string;
@@ -51,6 +75,13 @@ export class AuthController {
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Refresh access token using refresh token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Token refreshed successfully',
+    type: StandardResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
   async refresh(@Body() dto: RefreshTokenDto): Promise<{
     success: boolean;
     message: string;
@@ -67,6 +98,28 @@ export class AuthController {
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Logout user and invalidate tokens' })
+  @ApiResponse({
+    status: 200,
+    description: 'Logged out successfully',
+    type: StandardResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        refresh_token: {
+          type: 'string',
+          description: 'Refresh token to invalidate',
+          example:
+            'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456',
+        },
+      },
+    },
+    required: false,
+  })
   async logout(
     @Request() req: { headers?: { authorization?: string } },
     @Body() body: { refresh_token?: string },

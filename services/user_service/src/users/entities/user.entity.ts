@@ -68,7 +68,7 @@ export class User {
   deleted_at: Date | null;
 
   // Relationship with UserPreference
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+
   @OneToOne(() => UserPreference, (preference) => preference.user)
   preference?: UserPreference;
 }

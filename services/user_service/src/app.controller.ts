@@ -1,8 +1,10 @@
 import { Controller, Get, Post, Body } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AppService } from './app.service';
 import { DatabaseService } from './database/database.service';
 import { CacheService } from './cache/cache.service';
 
+@ApiTags('health')
 @Controller()
 export class AppController {
   constructor(
@@ -12,11 +14,15 @@ export class AppController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Health check endpoint' })
+  @ApiResponse({ status: 200, description: 'Service is running' })
   getHello(): string {
     return this.appService.getHello();
   }
 
   @Get('db-test')
+  @ApiOperation({ summary: 'Test database connection' })
+  @ApiResponse({ status: 200, description: 'Database connection status' })
   async testDatabase() {
     const status = await this.databaseService.getConnectionStatus();
     return {
@@ -29,6 +35,8 @@ export class AppController {
   }
 
   @Get('redis-test')
+  @ApiOperation({ summary: 'Test Redis connection' })
+  @ApiResponse({ status: 200, description: 'Redis connection status' })
   async testRedis() {
     const status = await this.cacheService.getConnectionStatus();
     return {
@@ -41,6 +49,10 @@ export class AppController {
   }
 
   @Post('redis-test')
+  @ApiOperation({
+    summary: 'Test Redis operations (set, get, exists, increment)',
+  })
+  @ApiResponse({ status: 200, description: 'Redis operations test results' })
   async testRedisOperations(@Body() body: { key?: string; value?: string }) {
     const testKey = body.key || 'test:key';
     const testValue = body.value || 'test-value';
