@@ -82,6 +82,67 @@ services:
           cpus: '1'
           memory: 2G
 
+  email-service:
+    build:
+      context: ./services/email_service
+      dockerfile: Dockerfile
+    container_name: email-service-prod
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - REDIS_HOST=redis
+      - TEMPLATE_SERVICE_URL=http://template-service:8003
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=587
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+      - MAILGUN_API_KEY=${MAILGUN_API_KEY:-}
+      - MAILGUN_DOMAIN=${MAILGUN_DOMAIN:-}
+    depends_on:
+      - rabbitmq
+      - redis
+      - template-service
+    networks:
+      - notification-network
+    restart: always
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  template-service:
+    build:
+      context: ./services/template_service
+      dockerfile: Dockerfile
+    container_name: template-service-prod
+    environment:
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=${POSTGRES_USER}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD}
+      - DATABASE_NAME=notifications
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - notification-network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
 volumes:
   rabbitmq_data:
   redis_data:
