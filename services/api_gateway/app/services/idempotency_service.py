@@ -17,7 +17,7 @@ class IdempotencyService:
         """
         key = f"idempotency:{request_id}"
         return await redis_manager.exists(key)
-    
+
     async def store_result(self, request_id: str, result: dict):
         """
         Store request result for idempotency
@@ -25,7 +25,7 @@ class IdempotencyService:
         key = f"idempotency:{request_id}"
         await redis_manager.set(key, json.dumps(result), ttl=IDEMPOTENCY_TTL)
         logger.info(f"Stored idempotency key: {request_id}")
-    
+
     async def get_result(self, request_id: str) -> dict:
         """
         Get cached result for duplicate request
