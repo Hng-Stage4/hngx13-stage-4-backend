@@ -51,7 +51,7 @@ services:
   user_service:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: user_service
     restart: unless-stopped
     env_file:
@@ -81,9 +81,12 @@ services:
       retries: 3
       start_period: 40s
     volumes:
-      # Hot reload in development (optional - remove in production)
+      # Hot reload - mount source code for watch mode
       - ./src:/app/src
       - ./package.json:/app/package.json
       - ./tsconfig.json:/app/tsconfig.json
+      - ./nest-cli.json:/app/nest-cli.json
+      # Exclude node_modules from volume (use container's node_modules)
+      - /app/node_modules
 
 
