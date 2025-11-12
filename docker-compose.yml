@@ -109,35 +109,4 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-  user_service:
-    build: ./services/user_service
-    container_name: user_service
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      - APP_ENV=development
-      - PORT=3001
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/notification_db
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
-      - JWT_EXPIRES_IN=30m
-      - REFRESH_TOKEN_EXPIRES_IN=7d
-    ports:
-      - "3001:3001"
-    networks:
-      - notification_network
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    volumes:
-      - ./services/user_service/src:/app/src  # Hot reload in development (optional)
+  
