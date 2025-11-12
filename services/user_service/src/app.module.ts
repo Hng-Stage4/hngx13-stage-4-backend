@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { PreferencesModule } from './preferences/preferences.module';
 import { RateLimitModule } from './rate-limit/rate-limit.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -22,6 +23,8 @@ import { RateLimitModule } from './rate-limit/rate-limit.module';
     CacheModule,
     // Rate limiting (global module)
     RateLimitModule,
+    // Health check
+    HealthModule,
     // Feature modules
     UsersModule,
     PreferencesModule,
