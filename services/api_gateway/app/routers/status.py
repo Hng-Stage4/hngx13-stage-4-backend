@@ -15,16 +15,13 @@ controller = StatusController()
 async def update_notification_status(
     notification_type: str,
     status_update: StatusUpdateRequest,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Update notification delivery status
     """
     result = await controller.update_status(notification_type, status_update)
-    
+
     return ApiResponse(
-        success=True,
-        data=result,
-        message="Status updated successfully",
-        meta=None
+        success=True, data=result, message="Status updated successfully", meta=None
     )
