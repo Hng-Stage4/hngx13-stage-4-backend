@@ -10,6 +10,7 @@ import { PasswordService } from './password.service';
 import { AuthJwtService, JwtPayload } from './jwt.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { TokenBlacklistService } from './token-blacklist.service';
+import { MetricsService } from '../metrics/metrics.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { TokenResponseDto } from './dto/token-response.dto';
@@ -24,7 +25,8 @@ export class AuthService {
     private readonly jwtService: AuthJwtService,
     private readonly refreshTokenService: RefreshTokenService,
     private readonly tokenBlacklistService: TokenBlacklistService,
-  ) {}
+    private readonly metricsService: MetricsService,
+  ) { }
 
   /**
    * Register a new user
@@ -64,6 +66,7 @@ export class AuthService {
     // Find user by email
     const user = await this.usersRepository.findByEmail(dto.email);
     if (!user) {
+      this.metricsService.incrementAuthFailTotal();
       throw new UnauthorizedException('Invalid email or password');
     }
 
@@ -73,11 +76,13 @@ export class AuthService {
       user.password_hash,
     );
     if (!isPasswordValid) {
+      this.metricsService.incrementAuthFailTotal();
       throw new UnauthorizedException('Invalid email or password');
     }
 
     // Check if user is active
     if (!user.active) {
+      this.metricsService.incrementAuthFailTotal();
       throw new UnauthorizedException('User account is inactive');
     }
 
@@ -113,12 +118,14 @@ export class AuthService {
       await this.refreshTokenService.getRefreshToken(refreshToken);
 
     if (!tokenData) {
+      this.metricsService.incrementAuthFailTotal();
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
     // Get user
     const user = await this.usersRepository.findById(tokenData.userId);
     if (!user || !user.active) {
+      this.metricsService.incrementAuthFailTotal();
       throw new UnauthorizedException('User not found or inactive');
     }
 

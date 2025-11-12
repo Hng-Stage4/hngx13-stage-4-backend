@@ -23,22 +23,53 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
           return delay;
         },
         maxRetriesPerRequest: 3,
+        // Enable lazy connect - don't fail on startup if Redis is down
+        lazyConnect: false,
+        // Retry connection automatically
+        enableReadyCheck: true,
       });
 
-      // Test connection
-      await this.redisClient.ping();
-      console.log('✅ Redis connection established');
-      console.log(`🔌 Redis: ${host}:${port}`);
+      // Test connection (with timeout to avoid blocking startup)
+      try {
+        await Promise.race([
+          this.redisClient.ping(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Connection timeout')), 5000),
+          ),
+        ]);
+        console.log('✅ Redis connection established');
+        console.log(`🔌 Redis: ${host}:${port}`);
+      } catch (pingError) {
+        console.warn(
+          '⚠️ Redis connection test failed, but service will continue:',
+          pingError instanceof Error ? pingError.message : 'Unknown error',
+        );
+        console.warn(
+          '⚠️ Redis operations will fail until connection is established',
+        );
+        // Don't throw - allow service to start without Redis
+        // Health check will report Redis as down
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
-      console.error('❌ Redis connection failed:', errorMessage);
-      throw error;
+      console.error('❌ Redis initialization failed:', errorMessage);
+      console.warn(
+        '⚠️ Service will continue without Redis. Health check will report Redis as down.',
+      );
+      // Don't throw - allow service to start without Redis
+      // This makes the service more resilient
     }
   }
 
   async onModuleDestroy() {
-    await this.redisClient.quit();
+    if (this.redisClient) {
+      try {
+        await this.redisClient.quit();
+      } catch (error) {
+        console.error('Error closing Redis connection:', error);
+      }
+    }
   }
 
   /**
@@ -121,6 +152,16 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     host: string;
     port: number;
   }> {
+    // Check if client is initialized
+    if (!this.redisClient) {
+      return {
+        status: 'disconnected',
+        isConnected: false,
+        host: 'unknown',
+        port: 6379,
+      };
+    }
+
     try {
       await this.redisClient.ping();
       const options = this.redisClient.options;
