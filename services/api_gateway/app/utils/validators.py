@@ -1,7 +1,9 @@
 """
 Custom Validators
 """
+
 from typing import Any
+
 
 def validate_notification_type(notification_type: str) -> bool:
     """
@@ -10,11 +12,13 @@ def validate_notification_type(notification_type: str) -> bool:
     valid_types = ["email", "push", "sms"]
     return notification_type in valid_types
 
+
 def validate_priority(priority: int) -> bool:
     """
     Validate priority value
     """
     return 1 <= priority <= 10
+
 
 def sanitize_template_variables(variables: dict) -> dict:
     """

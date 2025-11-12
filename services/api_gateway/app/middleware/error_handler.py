@@ -21,8 +21,8 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
                 content={
                     "success": False,
                     "error": e.detail,
-                    "message": "Request failed"
-                }
+                    "message": "Request failed",
+                },
             )
         except Exception as e:
             logger.error(f"Unhandled exception: {e}", exc_info=True)
@@ -31,6 +31,6 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
                 content={
                     "success": False,
                     "error": "Internal server error",
-                    "message": str(e)
-                }
+                    "message": str(e),
+                },
             )

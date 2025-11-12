@@ -22,31 +22,28 @@ class NotificationTracker:
             "notification_id": notification_id,
             "status": status.value,
             "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": datetime.utcnow().isoformat(),
         }
         await redis_manager.set(key, json.dumps(data), ttl=TRACKER_TTL)
-    
+
     async def update_status(
-        self,
-        notification_id: str,
-        status: NotificationStatus,
-        error: str = None
+        self, notification_id: str, status: NotificationStatus, error: str = None
     ):
         """
         Update notification status
         """
         key = f"notification:{notification_id}"
         existing = await redis_manager.get(key)
-        
+
         if existing:
             data = json.loads(existing)
             data["status"] = status.value
             data["updated_at"] = datetime.utcnow().isoformat()
             if error:
                 data["error"] = error
-            
+
             await redis_manager.set(key, json.dumps(data), ttl=TRACKER_TTL)
-    
+
     async def get_status(self, notification_id: str) -> dict:
         """
         Get notification status

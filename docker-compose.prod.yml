@@ -1,153 +1,260 @@
 # ============================================
-# docker-compose.prod.yml
+# docker-compose.yml (Root Level)
+# Complete setup for all microservices
 # ============================================
-version: '3.8'
 
 services:
+  # ==========================================
+  # INFRASTRUCTURE SERVICES
+  # ==========================================
+  
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
+      POSTGRES_DB: notifications
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - notification-network
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - notification-network
+    restart: unless-stopped
+
+  # RabbitMQ Message Queue
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - notification-network
+    restart: unless-stopped
+
+  # ==========================================
+  # MICROSERVICES
+  # ==========================================
+
+  # API Gateway Service
   api-gateway:
     build:
-      context: ./api-gateway
+      context: ./services/api_gateway
       dockerfile: Dockerfile
-    container_name: api-gateway-prod
+    container_name: api-gateway
     ports:
       - "3000:3000"
     environment:
-      - DEBUG=False
+      - DEBUG=${DEBUG:-False}
+      - HOST=0.0.0.0
+      - PORT=3000
       - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
       - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - USER_SERVICE_URL=http://user-service:8001
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
     depends_on:
-      - rabbitmq
-      - redis
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/api_gateway:/app
     networks:
       - notification-network
-    restart: always
-    deploy:
-      replicas: 3
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  rabbitmq:
-    image: rabbitmq:3.12-management-alpine
-    container_name: rabbitmq-prod
+  # User Service
+  user-service:
+    build:
+      context: ./services/user_service
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "8001:8001"
     environment:
-      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-admin}
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+      - DEBUG=${DEBUG:-False}
+      - HOST=0.0.0.0
+      - PORT=8001
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-secret}@postgres:5432/user_service
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
+      - ./services/user_service:/app
     networks:
       - notification-network
-    restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 1G
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  redis:
-    image: redis:7-alpine
-    container_name: redis-prod
-    command: redis-server --requirepass ${REDIS_PASSWORD}
-    volumes:
-      - redis_data:/data
-    networks:
-      - notification-network
-    restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-
-  postgres:
-    image: postgres:15-alpine
-    container_name: postgres-prod
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=notifications
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - notification-network
-    restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 2G
-
+  # Email Service
   email-service:
     build:
       context: ./services/email_service
       dockerfile: Dockerfile
-    container_name: email-service-prod
+    container_name: email-service
     environment:
+      - DEBUG=${DEBUG:-False}
       - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
       - REDIS_HOST=redis
-      - TEMPLATE_SERVICE_URL=http://template-service:8003
-      - SMTP_HOST=${SMTP_HOST:-}
-      - SMTP_PORT=587
-      - SMTP_USER=${SMTP_USER:-}
-      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
       - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
-      - MAILGUN_API_KEY=${MAILGUN_API_KEY:-}
-      - MAILGUN_DOMAIN=${MAILGUN_DOMAIN:-}
+      - TEMPLATE_SERVICE_URL=http://template-service:8003
+      - API_GATEWAY_URL=http://api-gateway:3000
     depends_on:
-      - rabbitmq
-      - redis
-      - template-service
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/email_service:/app
     networks:
       - notification-network
-    restart: always
-    deploy:
-      replicas: 2
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # Push Notification Service
+  push-service:
+    build:
+      context: ./services/push_service
+      dockerfile: Dockerfile
+    container_name: push-service
+    environment:
+      - DEBUG=${DEBUG:-False}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - FCM_SERVER_KEY=${FCM_SERVER_KEY:-}
+      - FCM_PROJECT_ID=${FCM_PROJECT_ID:-}
+      - ONESIGNAL_APP_ID=${ONESIGNAL_APP_ID:-}
+      - ONESIGNAL_API_KEY=${ONESIGNAL_API_KEY:-}
+      - API_GATEWAY_URL=http://api-gateway:3000
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/push_service:/app
+    networks:
+      - notification-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Template Service
   template-service:
     build:
       context: ./services/template_service
       dockerfile: Dockerfile
-    container_name: template-service-prod
+    container_name: template-service
+    ports:
+      - "8003:8003"
     environment:
-      - DATABASE_HOST=postgres
-      - DATABASE_PORT=5432
-      - DATABASE_USER=${POSTGRES_USER}
-      - DATABASE_PASSWORD=${POSTGRES_PASSWORD}
-      - DATABASE_NAME=notifications
+      - DEBUG=${DEBUG:-False}
+      - HOST=0.0.0.0
+      - PORT=8003
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-secret}@postgres:5432/template_service
       - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/template_service:/app
     networks:
       - notification-network
-    restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+# ==========================================
+# VOLUMES
+# ==========================================
 volumes:
-  rabbitmq_data:
-  redis_data:
   postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
 
+# ==========================================
+# NETWORKS
+# ==========================================
 networks:
   notification-network:
     driver: bridge
