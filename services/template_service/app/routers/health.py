@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from datetime import datetime
 import redis
-import psycopg2
+from sqlalchemy import text
 from app.config.settings import settings
 from app.config.database import engine
 
@@ -17,7 +17,7 @@ async def health_check():
     try:
         # Test database connection
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
     except Exception:
         checks["database"] = "unhealthy"
 

@@ -1,7 +1,8 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.config.settings import settings
+from app.utils.logger import logger
 
 SQLALCHEMY_DATABASE_URL = f"postgresql://{settings.database_user}:{settings.database_password}@{settings.database_host}:{settings.database_port}/{settings.database_name}"
 
@@ -18,4 +19,12 @@ def get_db():
         db.close()
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
+    try:
+        # Test connection first
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        raise
