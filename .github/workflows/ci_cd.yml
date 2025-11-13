@@ -7,7 +7,7 @@ name: Simple Deploy
 on:
   push:
     branches:
-      - main
+      - main  # trigger on pushes to main
 
 jobs:
   deploy:
@@ -15,29 +15,47 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Setup SSH
+      # 1️⃣ Checkout the repo (needed for actions/checkout)
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # fetch full history, needed for git pull/rebase
+
+      # 2️⃣ Start SSH agent and add private key for server
+      - name: Setup SSH Agent
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      # 3️⃣ Add GitHub to known hosts (for git pull via SSH)
+      - name: Add GitHub to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      # 4️⃣ Add your server to known hosts (for SSH deploy)
       - name: Add server to known hosts
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy
+      # 5️⃣ Deploy to server
+      - name: Deploy to Server
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_USER: ${{ secrets.SERVER_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           ssh $SERVER_USER@$SERVER_HOST << 'EOF'
+            echo "Deploying to $DEPLOY_PATH"
             cd $DEPLOY_PATH
-            git pull origin main
+            git fetch origin
+            git reset --hard origin/main
             docker-compose -f docker-compose.prod.yml up --build -d
             docker-compose -f docker-compose.prod.yml ps
           EOF
 
+      # 6️⃣ Optional health check
       - name: Verify Deployment
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
