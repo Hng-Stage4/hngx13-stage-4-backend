@@ -199,7 +199,7 @@ services:
       - notification_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/api/v1/health"]
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8003/api/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -209,6 +209,8 @@ services:
       context: ./services/email_service
       dockerfile: Dockerfile
     container_name: email-service
+    ports:
+      - "8001:8001"
     environment:
       - DEBUG=${DEBUG:-False}
       - RABBITMQ_HOST=rabbitmq
@@ -223,6 +225,7 @@ services:
       - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
       - TEMPLATE_SERVICE_URL=http://template-service:8003
       - API_GATEWAY_URL=http://api-gateway:3000
+      - PORT=8001
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -234,7 +237,7 @@ services:
       - notification_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/api/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
