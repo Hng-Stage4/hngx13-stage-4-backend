@@ -26,7 +26,7 @@ export class AuthService {
     private readonly refreshTokenService: RefreshTokenService,
     private readonly tokenBlacklistService: TokenBlacklistService,
     private readonly metricsService: MetricsService,
-  ) {}
+  ) { }
 
   /**
    * Register a new user
