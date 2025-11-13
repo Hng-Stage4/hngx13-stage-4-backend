@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
+import os
 
 class Settings(BaseSettings):
     # Service settings
@@ -8,7 +9,7 @@ class Settings(BaseSettings):
 
     # Server settings
     host: str = "0.0.0.0"
-    port: int = 8001
+    port: str | int = os.getenv("EMAIL_PORT", 8003)
 
     # RabbitMQ settings
     rabbitmq_host: str = "localhost"
