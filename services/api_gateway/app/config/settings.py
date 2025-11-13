@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "Notification API Gateway"
     DEBUG: bool = False
     HOST: str = "0.0.0.0"
-    GATEWAY_PORT: str | int = os.getenv("GATEWAY_PORT", 3000)
+    GATEWAY_PORT: str | int = os.getenv("GATEWAY_PORT", 8020)
 
     # CORS
     CORS_ORIGINS: List[str] = ["*"]
