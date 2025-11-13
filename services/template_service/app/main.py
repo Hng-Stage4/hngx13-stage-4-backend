@@ -5,7 +5,7 @@ from app.routers.metrics import router as metrics_router
 from app.routers.template import router as template_router
 from app.routers.version import router as version_router
 from app.utils.logger import logger
-from app.seeds.default_templates import seed_default_data
+from seeds.default_templates import seed_default_data
 
 app = FastAPI(
     title="Template Service",

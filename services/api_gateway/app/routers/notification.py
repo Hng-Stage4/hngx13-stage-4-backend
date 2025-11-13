@@ -15,7 +15,6 @@ controller = NotificationController()
 async def create_notification(
     request: Request,
     notification: NotificationRequest,
-    current_user: dict = Depends(get_current_user),
 ):
     """
     Create and queue a new notification

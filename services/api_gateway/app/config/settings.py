@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "Notification API Gateway"
     DEBUG: bool = False
     HOST: str = "0.0.0.0"
-    PORT: int = 3000
+    GATEWAY_PORT: str | int = os.getenv("GATEWAY_PORT", 3000)
 
     # CORS
     CORS_ORIGINS: List[str] = ["*"]
@@ -30,7 +30,8 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: str | None = None
 
     # User Service
-    USER_SERVICE_URL: str = "http://user-service:8001"
+    USER_SERVICE_URL: str = os.getenv("USER_SERVICE_URL", "http://localhost:3001")
+    TEMPLATE_SERVICE_URL: str = os.getenv("TEMPLATE_SERVICE_URL", "http://localhost:3002")
 
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 100

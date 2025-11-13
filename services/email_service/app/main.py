@@ -13,13 +13,17 @@ from app.utils.logger import logger
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Email Service", extra={"service_name": "email-service", "event": "service_startup"})
-    # Start consumers
-    email_consumer = EmailQueueConsumer()
-    retry_consumer = RetryQueueConsumer()
-    consumer_tasks = [
-        asyncio.create_task(email_consumer.start_consuming()),
-        asyncio.create_task(retry_consumer.start_consuming())
-    ]
+    # Start consumers (only if dependencies are available)
+    consumer_tasks = []
+    try:
+        email_consumer = EmailQueueConsumer()
+        retry_consumer = RetryQueueConsumer()
+        consumer_tasks = [
+            asyncio.create_task(email_consumer.start_consuming()),
+            asyncio.create_task(retry_consumer.start_consuming())
+        ]
+    except Exception as e:
+        logger.warning(f"Failed to start consumers: {e}. Service will run without queue processing.", extra={"event": "consumer_startup_failed"})
     yield
     # Shutdown
     logger.info("Shutting down Email Service", extra={"service_name": "email-service", "event": "service_shutdown"})

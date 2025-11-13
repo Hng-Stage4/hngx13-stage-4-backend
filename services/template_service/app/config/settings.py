@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
+import os
 
 class Settings(BaseSettings):
     # Service settings
@@ -8,19 +9,18 @@ class Settings(BaseSettings):
 
     # Server settings
     host: str = "0.0.0.0"
-    port: int = 8003
+    port: int | str = os.getenv("TEMPLATE_PORT", 8003)
 
     # Database settings
-    database_host: str = "localhost"
-    database_port: int = 5432
-    database_user: str = "postgres"
-    database_password: str = "password"
-    database_name: str = "template_db"
+    database_host: str = os.getenv("DATABASE_HOST", "localhost")
+    database_port: int = int(os.getenv("DATABASE_PORT", 5432))
+    database_user: str = os.getenv("DATABASE_USER", "postgres")
+    database_password: str = os.getenv("DATABASE_PASSWORD", "password")
+    database_name: str = os.getenv("DATABASE_NAME", "template_db")
 
-    # Redis settings
-    redis_host: str = "localhost"
-    redis_port: int = 6379
-    redis_db: int = 0
+    redis_host: str = os.getenv("REDIS_HOST", "localhost")
+    redis_port: int = int(os.getenv("REDIS_PORT", 6379))
+    redis_db: int = int(os.getenv("REDIS_DB", 0))
 
     # Cache settings
     cache_ttl: int = 3600
