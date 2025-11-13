@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     gmail_client_id: Optional[str] = None
     gmail_client_secret: Optional[str] = None
     gmail_refresh_token: Optional[str] = None
+    zoho_api_key: Optional[str] = None
 
     # Template service
     template_service_url: str = "http://template-service:8003"

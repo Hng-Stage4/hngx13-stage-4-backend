@@ -58,12 +58,14 @@ class TestEmailService:
         with patch.object(email_service, '_send_via_smtp', new_callable=AsyncMock) as mock_smtp, \
              patch.object(email_service, '_send_via_sendgrid', new_callable=AsyncMock) as mock_sendgrid, \
              patch.object(email_service, '_send_via_mailgun', new_callable=AsyncMock) as mock_mailgun, \
-             patch.object(email_service, '_send_via_gmail', new_callable=AsyncMock) as mock_gmail:
+             patch.object(email_service, '_send_via_gmail', new_callable=AsyncMock) as mock_gmail, \
+             patch.object(email_service, '_send_via_zoho', new_callable=AsyncMock) as mock_zoho:
 
             mock_smtp.return_value = False
             mock_sendgrid.return_value = False
             mock_mailgun.return_value = False
             mock_gmail.return_value = False
+            mock_zoho.return_value = False
 
             result = await email_service.send_email(
                 sample_message,
@@ -97,6 +99,37 @@ class TestEmailService:
             mock_settings.smtp_host = None
 
             result = await email_service._send_via_smtp(
+                sample_message,
+                "<h1>Welcome John!</h1>",
+                "Welcome to TestCo"
+            )
+
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_send_via_zoho_success(self, email_service, sample_message):
+        """Test Zoho provider success"""
+        with patch('app.services.email_service.requests.post') as mock_post:
+            mock_response = Mock()
+            mock_response.raise_for_status.return_value = None
+            mock_post.return_value = mock_response
+
+            result = await email_service._send_via_zoho(
+                sample_message,
+                "<h1>Welcome John!</h1>",
+                "Welcome to TestCo"
+            )
+
+            assert result is True
+            mock_post.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_send_via_zoho_no_config(self, email_service, sample_message):
+        """Test Zoho provider when not configured"""
+        with patch('app.config.settings.settings') as mock_settings:
+            mock_settings.zoho_api_key = None
+
+            result = await email_service._send_via_zoho(
                 sample_message,
                 "<h1>Welcome John!</h1>",
                 "Welcome to TestCo"
