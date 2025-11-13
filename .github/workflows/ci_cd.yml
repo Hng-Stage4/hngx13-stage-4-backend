@@ -1,131 +1,31 @@
 # ============================================
 # .github/workflows/deploy.yml
-# Simple Deploy to Azure VM (Multi-Stack Support)
-# Triggers only on merge to main
+# Simple Deploy to Azure VM
 # ============================================
 name: Deploy to Azure VM
 
 on:
   push:
-    branches:
-      - main  # Only deploy when merged to main
+    branches: [main]
 
 jobs:
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-
+    
     steps:
-      # ==========================================
-      # 1. CHECKOUT CODE
-      # ==========================================
-      - name: 📦 Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # ==========================================
-      # 2. SETUP SSH WITH PASSWORD
-      # ==========================================
-      - name: 🔐 Install sshpass
-        run: sudo apt-get update && sudo apt-get install -y sshpass
-
-      - name: 🔑 Add Azure VM to known hosts
-        env:
-          AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H $AZURE_VM_HOST >> ~/.ssh/known_hosts
-
-      # ==========================================
-      # 3. DEPLOY TO AZURE VM (WITH PASSWORD)
-      # ==========================================
       - name: 🚀 Deploy to Azure VM
-        env:
-          AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
-          AZURE_VM_USER: ${{ secrets.AZURE_VM_USER }}
-          AZURE_VM_PASSWORD: ${{ secrets.AZURE_VM_PASSWORD }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-        run: |
-          sshpass -p "$AZURE_VM_PASSWORD" ssh -o StrictHostKeyChecking=no $AZURE_VM_USER@$AZURE_VM_HOST << 'ENDSSH'
-            set -e  # Exit on any error
-            
-            echo "================================================"
-            echo "🚀 Starting Deployment"
-            echo "================================================"
-            
-            # Navigate to deployment directory
-            cd ${{ env.DEPLOY_PATH }}
-            
-            echo "📥 Pulling latest code from main..."
-            git fetch origin
-            git reset --hard origin/main
-            
-            echo "🐳 Stopping existing containers..."
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USER }}
+          password: ${{ secrets.AZURE_VM_PASSWORD }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+            git pull origin main
             docker-compose down
-            
-            echo "🔨 Building and starting services..."
-            docker-compose up --build -d
-            
-            echo "⏳ Waiting for services to be ready..."
-            sleep 15
-            
-            echo "✅ Checking service status..."
+            docker-compose build --no-cache
+            docker-compose up -d
+            sleep 10
             docker-compose ps
-            
-            echo "🧹 Cleaning up old Docker images..."
-            docker image prune -f
-            
-            echo "================================================"
             echo "✅ Deployment Complete!"
-            echo "================================================"
-          ENDSSH
-
-      # ==========================================
-      # 4. HEALTH CHECKS
-      # ==========================================
-      - name: 🏥 Health Check - API Gateway
-        env:
-          AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
-        run: |
-          echo "Waiting for services to stabilize..."
-          sleep 10
-          
-          echo "Checking API Gateway health..."
-          curl -f http://$AZURE_VM_HOST:3000/api/v1/health || echo "⚠️ API Gateway health check failed"
-
-      - name: 🏥 Health Check - Services
-        env:
-          AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
-          AZURE_VM_USER: ${{ secrets.AZURE_VM_USER }}
-          AZURE_VM_PASSWORD: ${{ secrets.AZURE_VM_PASSWORD }}
-        run: |
-          sshpass -p "$AZURE_VM_PASSWORD" ssh -o StrictHostKeyChecking=no $AZURE_VM_USER@$AZURE_VM_HOST << 'ENDSSH'
-            echo "Checking all service statuses..."
-            docker-compose ps
-            
-            # Check if any services are unhealthy
-            if docker-compose ps | grep -q "Exit"; then
-              echo "❌ Some services failed to start!"
-              docker-compose logs --tail=50
-              exit 1
-            else
-              echo "✅ All services are running!"
-            fi
-          ENDSSH
-
-      # ==========================================
-      # 5. DEPLOYMENT SUMMARY
-      # ==========================================
-      - name: 📊 Deployment Summary
-        if: always()
-        run: |
-          echo "================================================"
-          echo "📊 Deployment Summary"
-          echo "================================================"
-          echo "Repository: ${{ github.repository }}"
-          echo "Branch: ${{ github.ref_name }}"
-          echo "Commit: ${{ github.sha }}"
-          echo "Author: ${{ github.actor }}"
-          echo "Status: ${{ job.status }}"
-          echo "================================================"
