@@ -1,0 +1,211 @@
+{
+  "title": "User Service Metrics",
+  "tags": ["user-service", "api"],
+  "timezone": "browser",
+  "schemaVersion": 16,
+  "version": 1,
+  "refresh": "10s",
+  "uid": "user-service-metrics",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total API Requests",
+      "type": "stat",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "user_requests_total",
+          "legendFormat": "Total Requests",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": 0, "color": "green"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "API Request Rate",
+      "type": "graph",
+      "gridPos": {"x": 6, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "rate(user_requests_total[5m])",
+          "legendFormat": "Success",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(user_requests_failed_total[5m])",
+          "legendFormat": "Failed",
+          "refId": "B"
+        }
+      ],
+      "yaxes": [
+        {"format": "short", "label": "Requests/sec"},
+        {"format": "short"}
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Service Health Status",
+      "type": "gauge",
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 8},
+      "targets": [
+        {
+          "expr": "user_service_health_status",
+          "legendFormat": "Health",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": 0, "color": "red"},
+              {"value": 1, "color": "green"}
+            ]
+          },
+          "min": 0,
+          "max": 1,
+          "mappings": [
+            {"type": "value", "value": "0", "text": "Unhealthy"},
+            {"type": "value", "value": "1", "text": "Healthy"}
+          ]
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Request Duration (Average)",
+      "type": "graph",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "user_request_duration_seconds_avg",
+          "legendFormat": "Average Duration",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {"format": "s", "label": "Duration"},
+        {"format": "short"}
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Total Request Duration",
+      "type": "graph",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "rate(user_request_duration_seconds_sum[5m])",
+          "legendFormat": "Duration Sum Rate",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {"format": "s", "label": "Seconds/sec"},
+        {"format": "short"}
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Failed API Requests",
+      "type": "stat",
+      "gridPos": {"x": 0, "y": 16, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "user_requests_failed_total",
+          "legendFormat": "Failed Requests",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 1, "color": "yellow"},
+              {"value": 10, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Failed Authentication Attempts",
+      "type": "stat",
+      "gridPos": {"x": 6, "y": 16, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "user_auth_fail_total",
+          "legendFormat": "Auth Failures",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 5, "color": "yellow"},
+              {"value": 20, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Success Rate",
+      "type": "graph",
+      "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "(rate(user_requests_total[5m]) - rate(user_requests_failed_total[5m])) / rate(user_requests_total[5m]) * 100",
+          "legendFormat": "Success Rate %",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {"format": "percent", "label": "Success %", "min": 0, "max": 100},
+        {"format": "short"}
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Recent User Service Logs",
+      "type": "logs",
+      "gridPos": {"x": 0, "y": 24, "w": 24, "h": 10},
+      "targets": [
+        {
+          "expr": "{container=\"user-service\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending"
+      }
+    }
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  }
+}
