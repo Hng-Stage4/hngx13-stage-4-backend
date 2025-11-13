@@ -7,11 +7,11 @@ services:
   # API Gateway
   api-gateway:
     build:
-      context: ./services/api_gateway
+      context: .
       dockerfile: Dockerfile
     container_name: api-gateway
     ports:
-      - "8000:8000"
+      - "3000:3000"
     environment:
       - DEBUG=True
       - RABBITMQ_HOST=rabbitmq
@@ -23,7 +23,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./services/api_gateway:/app
+      - ./:/app
     networks:
       - notification-network
     restart: unless-stopped
@@ -67,27 +67,6 @@ services:
       - notification-network
     restart: unless-stopped
 
-  # PostgreSQL (for User Service and Template Service)
-  postgres:
-    image: postgres:15-alpine
-    container_name: postgres
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=secret
-      - POSTGRES_DB=notifications
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - notification-network
-    restart: unless-stopped
-
 volumes:
   rabbitmq_data:
   redis_data:
@@ -98,34 +77,3 @@ networks:
     driver: bridge
 
 
-# ============================================
-# Alternative: docker-compose.yml in services/api_gateway/
-# If you want to run it from the api_gateway directory
-# ============================================
-
-# services:
-#   # API Gateway
-#   api-gateway:
-#     build:
-#       context: .
-#       dockerfile: Dockerfile
-#     container_name: api-gateway
-#     ports:
-#       - "3000:3000"
-#     environment:
-#       - DEBUG=True
-#       - RABBITMQ_HOST=rabbitmq
-#       - REDIS_HOST=redis
-#       - USER_SERVICE_URL=http://user-service:8001
-#     depends_on:
-#       rabbitmq:
-#         condition: service_healthy
-#       redis:
-#         condition: service_healthy
-#     volumes:
-#       - .:/app
-#     networks:
-#       - notification-network
-#     restart: unless-stopped
-# 
-#   # Same RabbitMQ, Redis, Postgres as above...

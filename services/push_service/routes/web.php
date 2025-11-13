@@ -21,7 +21,7 @@ Route::get('/test-push', function () {
         $result = $pushService->processNotification([
             'notification_id' => 'test-' . time(),
             'user_id' => (string) Str::uuid(),
-            'push_token' => '<INSERT_VALID_FCM_TOKEN_HERE>',
+            'push_token' => 'fHJvWlkghKml6dzAFJ5_8C:APA91bF9gszaPSZQsmWKg_pTmQw9VxvegtG75QVZZDLOdMRD1jgPjmdBFeR0SmDm8PzYNnEYd8bZOrSmwwWhsRvKdrvUXD8r5BJIRoA7CyPOrSFBr7BJpAU',
             'title' => 'Welcome to HNG',
             'body' => 'Testing FCM integration',
             'image' => null,

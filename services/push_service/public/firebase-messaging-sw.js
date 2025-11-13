@@ -2,12 +2,12 @@ importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js'
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
 const firebaseConfig = {
-  apiKey: "your_api_key",
-  authDomain: "your_project.firebaseapp.com",
-  projectId: "your_project_id",
-  storageBucket: "your_project.appspot.com",
-  messagingSenderId: "your_messaging_sender_id",
-  appId: "your_app_id"
+  apiKey: "AIzaSyBmofN6RYNZXz6lWjh54Fm8Iu94IOyLYCY",
+  authDomain: "hng-push-notification.firebaseapp.com",
+  projectId: "hng-push-notification",
+  storageBucket: "hng-push-notification.firebasestorage.app",
+  messagingSenderId: "795956177225",
+  appId: "1:795956177225:web:5e71f6ce99daf3718e1298"
 };
 
 firebase.initializeApp(firebaseConfig);
