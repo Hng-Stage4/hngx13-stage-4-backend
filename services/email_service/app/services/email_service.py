@@ -19,7 +19,8 @@ class EmailService:
             self._send_via_smtp,
             self._send_via_sendgrid,
             self._send_via_mailgun,
-            self._send_via_gmail
+            self._send_via_gmail,
+            self._send_via_zoho
         ]
 
         for provider in providers:
@@ -122,3 +123,25 @@ class EmailService:
         # This would require google-api-python-client
         # For now, return False
         return False
+
+    async def _send_via_zoho(self, message: EmailMessage, rendered_template: str, subject: str) -> bool:
+        if not settings.zoho_api_key:
+            return False
+
+        try:
+            url = "https://mail.zoho.com/api/accounts/0/messages"
+            headers = {
+                "Authorization": f"Zoho-oauthtoken {settings.zoho_api_key}",
+                "Content-Type": "application/json"
+            }
+            data = {
+                "toRecipients": [{"address": message.to_email}],
+                "subject": subject,
+                "html": rendered_template
+            }
+            response = requests.post(url, json=data, headers=headers)
+            response.raise_for_status()
+            return True
+        except Exception as e:
+            logger.error(f"Zoho send failed: {str(e)}")
+            raise e
