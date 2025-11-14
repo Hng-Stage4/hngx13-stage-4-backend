@@ -1,12 +1,13 @@
 # ============================================
 # api-gateway/app/config/rabbitmq.py
 # ============================================
+import json
 import aio_pika
-import logging
 from typing import Optional
 from app.config.settings import settings
 
-logger = logging.getLogger(__name__)
+from app.utils.logger import logger
+
 
 
 class RabbitMQManager:
@@ -42,25 +43,34 @@ class RabbitMQManager:
             await self.connection.close()
             logger.info("Disconnected from RabbitMQ")
 
-    async def publish_message(self, queue_name: str, message: dict):
-        """Publish message to queue"""
+    async def publish_message(self, queue_name: str, message: dict):  # dict, not string
         if not self.channel:
             raise Exception("RabbitMQ channel not initialized")
 
         try:
-            exchange = await self.channel.get_exchange("notifications.direct")
+            exchange = await self.channel.declare_exchange(
+                "notifications.direct", aio_pika.ExchangeType.DIRECT, durable=True
+            )
 
+            queue = await self.channel.declare_queue(queue_name, durable=True)
+            
+            # Derive routing key from queue name
+            routing_key = queue_name.split('.')[0]
+            
+            await queue.bind(exchange, routing_key=routing_key)
+
+            # json.dumps() happens HERE, only once
             await exchange.publish(
                 aio_pika.Message(
-                    body=str(message).encode(),
+                    body=json.dumps(message).encode(),  # This is the ONLY json.dumps
                     delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                    content_type='application/json',
                 ),
-                routing_key=queue_name,
+                routing_key=routing_key,
             )
-            logger.info(f"Published message to {queue_name}")
+            logger.info(f"Published to queue='{queue_name}', routing_key='{routing_key}'")
         except Exception as e:
-            logger.error(f"Failed to publish message: {e}")
+            logger.error(f"Failed to publish message to {queue_name}: {e}")
             raise
-
 
 rabbitmq_manager = RabbitMQManager()

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from app.config.database import get_db
 from app.services.template_service import TemplateService
 from app.schemas.template_schema import (
@@ -22,6 +23,14 @@ async def create_template(
             data=result,
             message="Template created successfully"
         )
+    except IntegrityError as e:
+        logger.error(f"Database integrity error: {str(e)}")
+        if "ix_templates_logical_id" in str(e):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"A template with logical_id '{template.logical_id}' already exists"
+            )
+        raise HTTPException(status_code=400, detail="Database integrity error")
     except Exception as e:
         logger.error(f"Failed to create template: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -36,9 +45,26 @@ async def get_template(
         result = service.get_template(template_id)
         if not result:
             raise HTTPException(status_code=404, detail="Template not found")
+        
+        # Handle both SQLAlchemy models and dicts from cache
+        if isinstance(result, dict):
+            template_data = result
+        else:
+            # Convert SQLAlchemy model to dict for Pydantic
+            template_data = {
+                "id": result.id,
+                "logical_id": result.logical_id,
+                "name": result.name,
+                "subject": result.subject,
+                "body": result.body,
+                "language": result.language,
+                "created_at": result.created_at,
+                "updated_at": result.updated_at
+            }
+        
         return TemplateResponse(
             success=True,
-            data=result,
+            data=template_data,
             message="Template retrieved successfully"
         )
     except HTTPException:

@@ -34,15 +34,20 @@ class UserService:
                 response.raise_for_status()
                 user_data = response.json()
 
+                logger.info(f"Fetched user data for {user_id}: {user_data}")
+
                 # Cache result
                 await redis_manager.set(
                     cache_key, json.dumps(user_data), ttl=USER_CACHE_TTL
                 )
 
+                logger.info(f"User {user_id} cached with TTL={USER_CACHE_TTL}s")
+
                 return user_data
         except Exception as e:
             logger.error(f"Failed to fetch user {user_id}: {e}")
             return None
+
 
     async def check_preference(self, user_id: str, notification_type: str) -> bool:
         """
@@ -53,5 +58,13 @@ class UserService:
         if not user:
             return False
 
-        preferences = user.get("data", {}).get("preferences", {})
-        return preferences.get(notification_type, True)
+        prefs = user.get("data", {}).get("preference", {})
+
+        if notification_type == "email":
+            return prefs.get("email_enabled", True)
+
+        if notification_type == "push":
+            return prefs.get("push_enabled", True)
+
+        return True
+

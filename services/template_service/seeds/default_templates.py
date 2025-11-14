@@ -2,6 +2,7 @@ from app.config.database import SessionLocal
 from app.models.template import Template
 from app.models.version import Version
 from app.models.language import Language
+import uuid
 
 def seed_default_data():
     db = SessionLocal()
@@ -18,10 +19,13 @@ def seed_default_data():
             if not existing:
                 db.add(lang)
         
+        db.commit()  # Commit languages first
+        
         # Seed default templates
         templates = [
             {
-                "id": "welcome_email",
+                "id": str(uuid.uuid4()),  # UUID for internal ID
+                "logical_id": "welcome_email",  # ✅ Added logical_id
                 "name": "Welcome Email",
                 "subject": "Welcome to {{company_name}}!",
                 "body": """
@@ -34,7 +38,8 @@ def seed_default_data():
                 "language": "en"
             },
             {
-                "id": "password_reset",
+                "id": str(uuid.uuid4()),  # UUID for internal ID
+                "logical_id": "password_reset",  # ✅ Added logical_id
                 "name": "Password Reset",
                 "subject": "Reset Your Password",
                 "body": """
@@ -51,15 +56,19 @@ def seed_default_data():
         ]
         
         for template_data in templates:
-            existing = db.query(Template).filter(Template.id == template_data["id"]).first()
+            # Check by logical_id instead of id
+            existing = db.query(Template).filter(
+                Template.logical_id == template_data["logical_id"]
+            ).first()
+            
             if not existing:
                 template = Template(**template_data)
                 db.add(template)
-                db.flush()  # To get the ID
+                db.flush()  # To get the template data committed
                 
-                # Create initial version
+                # Create initial version - use logical_id for foreign key
                 version = Version(
-                    template_id=template.id,
+                    template_logical_id=template.logical_id,  # ✅ Fixed: use logical_id
                     version_number=1,
                     subject=template.subject,
                     body=template.body,
@@ -73,6 +82,7 @@ def seed_default_data():
     except Exception as e:
         db.rollback()
         print(f"Error seeding data: {e}")
+        raise  # Re-raise to see the full error in logs
     finally:
         db.close()
 

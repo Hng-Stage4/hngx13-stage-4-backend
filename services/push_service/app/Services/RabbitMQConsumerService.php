@@ -69,10 +69,25 @@ class RabbitMQConsumerService
         $callback = function (AMQPMessage $msg) {
             $this->metrics->incrementMessagesConsumed();
             $start = microtime(true);
+            $data = null;
 
             try {
-                $data = json_decode($msg->body, true);
-                if (json_last_error() !== JSON_ERROR_NONE) throw new \Exception('Invalid JSON payload');
+                // Log the raw body for debugging
+                $rawBody = $msg->body;
+                $this->logJson('debug', $this->serviceName, 'raw_body_received', 'Raw body type: ' . gettype($rawBody) . ' | Length: ' . strlen($rawBody) . ' | First 200 chars: ' . substr($rawBody, 0, 200));
+                
+                $data = json_decode($rawBody, true);
+                
+                // Log after decode
+                $this->logJson('debug', $this->serviceName, 'after_json_decode', 'Decoded type: ' . gettype($data) . ' | JSON error: ' . json_last_error_msg());
+                
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    throw new \Exception('Invalid JSON payload: ' . json_last_error_msg());
+                }
+                
+                if (!is_array($data)) {
+                    throw new \Exception('Decoded data is not an array. Type: ' . gettype($data) . ' | Value: ' . var_export($data, true));
+                }
 
                 $result = $this->pushService->processNotification($data);
 
@@ -80,8 +95,9 @@ class RabbitMQConsumerService
                     $msg->ack();
                     $this->logJson('info', $this->serviceName, 'message_processed', 'Notification processed', $data['notification_id'] ?? null);
                 } else {
-                    if ($result['retryable'] ?? true) $msg->nack(true);
-                    else {
+                    if ($result['retryable'] ?? true) {
+                        $msg->nack(true);
+                    } else {
                         $this->moveToFailedQueue($msg);
                         $msg->ack();
                         $this->logJson('error', $this->serviceName, 'message_failed', 'Notification moved to failed queue', $data['notification_id'] ?? null);
@@ -94,7 +110,7 @@ class RabbitMQConsumerService
                 $msg->ack();
             } finally {
                 $duration = microtime(true) - $start;
-                $this->metrics->recordDuration($duration); // Optional queue processing duration
+                $this->metrics->recordDuration($duration);
             }
         };
 
@@ -102,8 +118,11 @@ class RabbitMQConsumerService
 
         $this->logJson('info', $this->serviceName, 'waiting_for_messages', 'Waiting for messages from RabbitMQ...');
 
-        while ($this->channel->is_consuming()) $this->channel->wait();
+        while ($this->channel->is_consuming()) {
+            $this->channel->wait();
+        }
     }
+
 
     /**
      * Move a failed message to the dead-letter queue.

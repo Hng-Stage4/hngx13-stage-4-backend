@@ -39,9 +39,9 @@ class TemplateService:
             # Fetch from Template Service API
             async with httpx.AsyncClient(timeout=10.0) as client:
                 params = {"language": language} if language else None
-                logger.debug(f"Sending GET {self.base_url}/api/v1/templates/{template_code} with params={params}")
+                logger.debug(f"Sending GET {self.base_url}/api/templates/{template_code} with params={params}")
                 response = await client.get(
-                    f"{self.base_url}/api/v1/templates/{template_code}",
+                    f"{self.base_url}/api/templates/{template_code}",
                     params=params
                 )
                 response.raise_for_status()
