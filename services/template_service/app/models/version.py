@@ -7,6 +7,8 @@ class Version(Base):
     __tablename__ = "versions"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    # template_logical_id = Column(String, ForeignKey("templates.logical_id"), nullable=False, index=True)
+
     template_logical_id = Column(
         String,
         ForeignKey("templates.logical_id", ondelete="CASCADE"),
