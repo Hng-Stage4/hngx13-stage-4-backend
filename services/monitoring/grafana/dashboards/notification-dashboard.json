@@ -1,117 +1,175 @@
 {
   "title": "Notification System Overview",
-  "tags": ["notification", "microservices"],
-  "timezone": "browser",
-  "schemaVersion": 16,
-  "version": 1,
+  "uid": "notification-system-overview-v2",
+  "tags": ["notification", "overview", "microservices"],
+  "schemaVersion": 36,
+  "version": 2,
   "refresh": "10s",
-  "uid": "notification-system-overview",
+  "timezone": "browser",
+
+  "time": { "from": "now-1h", "to": "now" },
+
   "panels": [
+
     {
       "id": 1,
-      "title": "Request Rate (per minute)",
       "type": "graph",
-      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "title": "Total Request Rate (All Services)",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 },
       "targets": [
-        {
-          "expr": "sum(rate(api_gateway_requests_total[1m])) by (service)",
-          "legendFormat": "{{service}}",
-          "refId": "A"
-        }
+        { "expr": "rate(api_gateway_requests_total[1m])", "legendFormat": "API Gateway", "refId": "A" },
+        { "expr": "rate(email_service_emails_sent_total[1m])", "legendFormat": "Email Service (sent)", "refId": "B" },
+        { "expr": "rate(push_service_notifications_sent_total[1m])", "legendFormat": "Push Service", "refId": "C" },
+        { "expr": "rate(template_service_requests_total[1m])", "legendFormat": "Template Service", "refId": "D" },
+        { "expr": "rate(user_requests_total[1m])", "legendFormat": "User Service", "refId": "E" }
       ],
       "yaxes": [
-        {"format": "short", "label": "Requests/min"},
-        {"format": "short"}
+        { "format": "short", "label": "Requests/sec" },
+        { "format": "short" }
       ]
     },
     {
       "id": 2,
-      "title": "Response Time (95th percentile)",
       "type": "graph",
-      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "title": "End-to-End Latency (p95)",
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(api_gateway_request_duration_seconds_bucket[5m])) by (le, service))",
-          "legendFormat": "{{service}}",
+          "expr": "histogram_quantile(0.95, sum(rate(api_gateway_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "API Gateway",
           "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(email_service_delivery_time_seconds_bucket[5m])) by (le))",
+          "legendFormat": "Email Service",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(push_service_notification_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "Push Service",
+          "refId": "C"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(template_service_render_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "Template Service",
+          "refId": "D"
         }
       ],
       "yaxes": [
-        {"format": "s", "label": "Duration"},
-        {"format": "short"}
+        { "format": "s", "label": "Seconds" },
+        { "format": "short" }
       ]
     },
     {
       "id": 3,
-      "title": "Notifications Sent (Last Hour)",
-      "type": "stat",
-      "gridPos": {"x": 0, "y": 8, "w": 6, "h": 4},
+      "type": "gauge",
+      "title": "Notification Success Rate (Email + Push)",
+      "gridPos": { "x": 0, "y": 16, "w": 8, "h": 8 },
       "targets": [
         {
-          "expr": "sum(increase(email_service_notifications_sent_total{status=\"success\"}[1h]))",
+          "expr": "((rate(email_service_emails_sent_total[5m]) + rate(push_service_notifications_sent_total{status=\"success\"}[5m])) / (rate(email_service_emails_sent_total[5m]) + rate(email_service_emails_failed_total[5m]) + rate(push_service_notifications_sent_total[5m]))) * 100",
+          "legendFormat": "Success %",
           "refId": "A"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": 0, "color": "red" },
+              { "value": 90, "color": "yellow" },
+              { "value": 97, "color": "green" }
+            ] 
+          }
+        }
+      }
     },
     {
       "id": 4,
-      "title": "Failed Notifications (Last Hour)",
       "type": "stat",
-      "gridPos": {"x": 6, "y": 8, "w": 6, "h": 4},
+      "title": "Emails Sent (Last Hour)",
+      "gridPos": { "x": 8, "y": 16, "w": 8, "h": 4 },
       "targets": [
-        {
-          "expr": "sum(increase(email_service_notifications_sent_total{status=\"failed\"}[1h]))",
-          "refId": "A"
-        }
+        { "expr": "sum(increase(email_service_emails_sent_total[1h]))", "refId": "A" }
       ]
     },
     {
       "id": 5,
-      "title": "Queue Size",
-      "type": "graph",
-      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "type": "stat",
+      "title": "Email Failures (Last Hour)",
+      "gridPos": { "x": 16, "y": 16, "w": 8, "h": 4 },
       "targets": [
-        {
-          "expr": "sum(email_service_queue_size) by (queue_name)",
-          "legendFormat": "{{queue_name}}",
-          "refId": "A"
+        { "expr": "sum(increase(email_service_emails_failed_total[1h]))", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 1, "color": "red" }
+              ]
+            }
+          }
         }
-      ]
+      }
     },
     {
       "id": 6,
-      "title": "Error Rate",
-      "type": "graph",
-      "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+      "type": "stat",
+      "title": "Push Notifications (Last Hour)",
+      "gridPos": { "x": 8, "y": 20, "w": 8, "h": 4 },
       "targets": [
-        {
-          "expr": "sum(rate(api_gateway_processing_errors_total[5m])) by (error_type)",
-          "legendFormat": "{{error_type}}",
-          "refId": "A"
-        }
+        { "expr": "sum(increase(push_service_notifications_sent_total[1h]))", "refId": "A" }
       ]
     },
     {
       "id": 7,
-      "title": "Service Health Status",
       "type": "stat",
-      "gridPos": {"x": 12, "y": 16, "w": 12, "h": 4},
+      "title": "Push Retries (Last Hour)",
+      "gridPos": { "x": 16, "y": 20, "w": 8, "h": 4 },
       "targets": [
-        {
-          "expr": "sum(api_gateway_up) by (service)",
-          "legendFormat": "{{service}}",
-          "refId": "A"
-        }
+        { "expr": "sum(increase(push_service_notification_retries_total[1h]))", "refId": "A" }
       ]
     },
     {
       "id": 8,
-      "title": "Recent Logs",
+      "type": "graph",
+      "title": "Queue Lengths (Email + Push)",
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 8 },
+      "targets": [
+        { "expr": "email_service_queue_length", "legendFormat": "Email Queue", "refId": "A" },
+        { "expr": "push_service_queue_messages_ready", "legendFormat": "Push Ready", "refId": "B" },
+        { "expr": "push_service_queue_messages_unacknowledged", "legendFormat": "Push Unacked", "refId": "C" }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "graph",
+      "title": "System Error Rates",
+      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 8 },
+      "targets": [
+        { "expr": "rate(api_gateway_requests_failed_total[5m])", "legendFormat": "Gateway Failures", "refId": "A" },
+        { "expr": "rate(email_service_emails_failed_total[5m])", "legendFormat": "Email Failures", "refId": "B" },
+        { "expr": "rate(push_service_notifications_sent_total{status=\"failed\"}[5m])", "legendFormat": "Push Failures", "refId": "C" },
+        { "expr": "rate(template_service_errors_total[5m])", "legendFormat": "Template Errors", "refId": "D" },
+        { "expr": "rate(user_requests_failed_total[5m])", "legendFormat": "User API Failures", "refId": "E" }
+      ]
+    },
+    {
+      "id": 10,
       "type": "logs",
-      "gridPos": {"x": 0, "y": 24, "w": 24, "h": 10},
+      "title": "Recent Logs Across All Services",
+      "gridPos": { "x": 0, "y": 40, "w": 24, "h": 10 },
       "targets": [
         {
-          "expr": "{job=~\"api-gateway|user-service|email-service|push-service|template-service\"}",
+          "expr": "{container=~\"api-gateway|email-service|push-service|template-service|user-service\"}",
           "refId": "A"
         }
       ],
@@ -121,9 +179,5 @@
         "sortOrder": "Descending"
       }
     }
-  ],
-  "time": {
-    "from": "now-1h",
-    "to": "now"
-  }
+  ]
 }

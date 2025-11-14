@@ -2,6 +2,7 @@
 # api-gateway/app/routers/health.py
 # ============================================
 from fastapi import APIRouter
+from app.services.metrics import prometheus_metrics
 from app.controllers.health_controller import HealthController
 
 router = APIRouter()
@@ -30,3 +31,8 @@ async def liveness_check():
     Liveness check for Kubernetes
     """
     return {"status": "alive"}
+
+
+@router.get("/metrics")
+def metrics():
+    return prometheus_metrics()

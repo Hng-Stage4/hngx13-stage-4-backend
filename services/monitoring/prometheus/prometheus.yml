@@ -10,12 +10,12 @@ scrape_configs:
       - targets: ['localhost:9090']
 
   - job_name: 'api-gateway'
-    metrics_path: '/metrics'
+    metrics_path: '/api/v1/metrics'
     static_configs:
-      - targets: ['api-gateway:8000']
+      - targets: ['api-gateway:8020']
         labels:
           service: 'api-gateway'
-          environment: 'production'
+          environment: 'local'
 
   - job_name: 'user-service'
     metrics_path: '/api/metrics'

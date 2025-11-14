@@ -1,17 +1,18 @@
 # ============================================
 # api-gateway/app/routers/notification.py
 # ============================================
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from app.schemas.notification_schema import NotificationRequest, NotificationResponse
 from app.schemas.response_schema import ApiResponse
 from app.controllers.notification_controller import NotificationController
-from app.middleware.auth import get_current_user
+from app.utils.decorators import monitor_endpoint
 
 router = APIRouter()
 controller = NotificationController()
 
 
 @router.post("/notifications/", response_model=ApiResponse[NotificationResponse])
+@monitor_endpoint()
 async def create_notification(
     request: Request,
     notification: NotificationRequest,
