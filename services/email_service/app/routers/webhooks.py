@@ -57,3 +57,17 @@ async def smtp_bounce_webhook(request: Request, webhook_service: WebhookService 
     except Exception as e:
         logger.error(f"SMTP bounce webhook error: {str(e)}")
         raise HTTPException(status_code=500, detail="Webhook processing failed")
+
+@router.post("/zoho")
+async def zoho_webhook(request: Request, webhook_service: WebhookService = Depends()):
+    """Handle Zoho Mail webhook events for delivery confirmations and bounces"""
+    try:
+        event_data = await request.json()
+        await webhook_service.process_zoho_event(event_data)
+        WEBHOOK_EVENTS_RECEIVED.inc()
+        logger.info("Processed Zoho event")
+        return {"status": "ok"}
+
+    except Exception as e:
+        logger.error(f"Zoho webhook error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Webhook processing failed")

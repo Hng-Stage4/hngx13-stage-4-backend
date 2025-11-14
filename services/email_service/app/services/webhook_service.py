@@ -85,3 +85,35 @@ class WebhookService:
 
         self.status_updater.update_status(delivery_status)
         logger.info(f"Processed SMTP bounce for {correlation_id}")
+
+    async def process_zoho_event(self, event_data: Dict[str, Any]):
+        """Process Zoho Mail webhook event"""
+        event_type = event_data.get('event') or event_data.get('type')
+        correlation_id = event_data.get('correlation_id') or event_data.get('messageId')
+
+        if not correlation_id:
+            logger.warning(f"Zoho event missing correlation_id: {event_data}")
+            return
+
+        status_mapping = {
+            'delivered': 'delivered',
+            'bounced': 'bounced',
+            'rejected': 'rejected',
+            'failed': 'failed',
+            'opened': 'opened',
+            'clicked': 'clicked',
+            'unsubscribed': 'unsubscribed',
+            'spam': 'spam'
+        }
+
+        status = status_mapping.get(event_type, 'unknown')
+
+        delivery_status = DeliveryStatus(
+            correlation_id=correlation_id,
+            status=status,
+            provider="zoho",
+            details=event_data
+        )
+
+        self.status_updater.update_status(delivery_status)
+        logger.info(f"Processed Zoho event: {event_type} for {correlation_id}")
