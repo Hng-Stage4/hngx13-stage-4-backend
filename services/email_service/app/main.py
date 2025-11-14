@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import asyncio
-from app.config.settings import settings
 from app.routers.health import router as health_router
 from app.routers.metrics import router as metrics_router
 from app.routers.webhooks import router as webhooks_router
@@ -13,26 +12,32 @@ from app.utils.logger import logger
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Email Service", extra={"service_name": "email-service", "event": "service_startup"})
-    # Start consumers (only if dependencies are available)
-    consumer_tasks = []
+    
+    # Store consumer instances
+    consumer_instances = []
+    
     try:
         email_consumer = EmailQueueConsumer()
         retry_consumer = RetryQueueConsumer()
-        consumer_tasks = [
-            asyncio.create_task(email_consumer.start_consuming()),
-            asyncio.create_task(retry_consumer.start_consuming())
-        ]
+        
+        consumer_instances = [email_consumer, retry_consumer]
+        
+        # Start consumers (they run in daemon threads, so just await the startup)
+        await email_consumer.start_consuming()
+        await retry_consumer.start_consuming()
+        
+        logger.info("Consumers started successfully", extra={"event": "consumers_started"})
     except Exception as e:
         logger.warning(f"Failed to start consumers: {e}. Service will run without queue processing.", extra={"event": "consumer_startup_failed"})
-    yield
+    
+    yield  # <-- This should now be reached!
+    
     # Shutdown
     logger.info("Shutting down Email Service", extra={"service_name": "email-service", "event": "service_shutdown"})
-    for task in consumer_tasks:
-        task.cancel()
-    try:
-        await asyncio.gather(*consumer_tasks, return_exceptions=True)
-    except asyncio.CancelledError:
-        pass
+    
+    # Stop consumers
+    for consumer in consumer_instances:
+        consumer.stop()
 
 app = FastAPI(
     title="Email Service",

@@ -82,7 +82,7 @@ class NotificationController:
             user_data = user
 
             # Build canonical message for queue
-            message = {
+            canonical_message = {
                 "notification_id": notification_id,
                 "notification_type": notification.notification_type.value,
                 "user_id": notification.user_id,
@@ -100,17 +100,38 @@ class NotificationController:
                 "timestamp": datetime.utcnow().isoformat()
             }
 
-            # Log the delivery object
-            logger.info(f"Delivery object: {message['delivery']}")
-            logger.info(f"Push token present: {bool(message['delivery']['push_token'])}")
+            logger.info(f"Delivery object: {canonical_message['delivery']}")
+            logger.info(f"Push token present: {bool(canonical_message['delivery']['push_token'])}")
 
             # Determine queue based on notification type
             queue_name = f"{notification.notification_type.value}.queue"
 
-            # Publish to queue
-            await self.queue_service.publish(queue_name, message)
+            if notification.notification_type.value == "email":
+                raw_vars = notification.variables.dict()
 
-            # Track notification
+                # Normalize to string-only keys/values
+                sanitized_vars = {
+                    key: ("" if value is None else str(value))
+                    for key, value in raw_vars.items()
+                }
+
+                queue_message = {
+                    "notification_id": notification_id,
+                    "correlation_id": correlation_id,
+                    "to_email": user_data.get("email"),
+                    "template_id": notification.template_code,
+                    "variables": sanitized_vars,
+                    "language": sanitized_vars.get("language", "en"),
+                    "priority": str(notification.priority) if isinstance(notification.priority, int) else notification.priority,
+                    "retry_count": 0
+                }
+            elif notification.notification_type.value == "push":
+                queue_message = canonical_message
+            else:
+                queue_message = canonical_message
+
+            await self.queue_service.publish(queue_name, queue_message)
+
             await self.tracker.track(notification_id, NotificationStatus.pending)
 
             # Store result for idempotency
@@ -129,6 +150,7 @@ class NotificationController:
         except Exception as e:
             logger.error(f"Failed to create notification: {e}")
             raise
+
 
     async def get_notification_status(
         self, notification_id: str

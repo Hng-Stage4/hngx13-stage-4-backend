@@ -2,7 +2,6 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import requests
-from typing import Optional
 from app.config.settings import settings
 from app.models.email_message import EmailMessage
 from app.utils.logger import logger
@@ -29,7 +28,7 @@ class EmailService:
                 logger.info(
                     f"Email sent successfully via {provider.__name__}",
                     extra={
-                        "correlation_id": message.correlation_id,
+                        "notification_id": message.notification_id,
                         "event": "email_sent",
                         "provider": provider.__name__
                     }
@@ -40,7 +39,7 @@ class EmailService:
         logger.error(
             "Failed to send email through all providers",
             extra={
-                "correlation_id": message.correlation_id,
+                "notification_id": message.notification_id,
                 "event": "email_send_failed"
             }
         )
