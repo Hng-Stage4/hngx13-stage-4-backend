@@ -3,6 +3,7 @@ from typing import Dict, Optional
 from datetime import datetime
 
 class EmailMessage(BaseModel):
+    notification_id: str
     correlation_id: str
     to_email: str
     template_id: str

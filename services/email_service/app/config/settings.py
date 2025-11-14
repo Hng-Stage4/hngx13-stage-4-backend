@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     # Template service
     template_service_url: str = os.getenv("TEMPLATE_SERVICE_URL", "http://template-service:8003")
 
+    API_GATEWAY_URL: str = os.getenv("API_GATEWAY_URL", "http://api-gateway:8020")
+
     # Circuit breaker
     circuit_breaker_failure_threshold: int = int(os.getenv("CIRCUIT_BREAKER_FAILURE_THRESHOLD", 5))
     circuit_breaker_recovery_timeout: int = int(os.getenv("CIRCUIT_BREAKER_RECOVERY_TIMEOUT", 60))

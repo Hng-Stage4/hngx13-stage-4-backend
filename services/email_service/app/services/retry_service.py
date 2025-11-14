@@ -38,7 +38,7 @@ class RetryService:
         logger.info(
             f"Message scheduled for retry {message.retry_count}/{self.max_retries} in {delay}s",
             extra={
-                "correlation_id": message.correlation_id,
+                "notification_id": message.notification_id,
                 "event": "message_retry_scheduled",
                 "retry_count": message.retry_count
             }
@@ -63,7 +63,7 @@ class RetryService:
         logger.error(
             f"Message moved to dead letter queue after {self.max_retries} retries",
             extra={
-                "correlation_id": message.correlation_id,
+                "notification_id": message.notification_id,
                 "event": "message_dead_lettered",
                 "error": error
             }

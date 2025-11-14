@@ -1,10 +1,11 @@
+from datetime import datetime
 import json
 import asyncio
 import time
 import threading
 from app.config.rabbitmq import get_rabbitmq_channel
 from app.models.email_message import EmailMessage
-from app.models.delivery_status import DeliveryStatus
+from app.models.delivery_status import DeliveryStatus, DeliveryStatusEnum
 from app.services.email_service import EmailService
 from app.services.template_service import TemplateServiceClient
 from app.services.retry_service import RetryService
@@ -92,7 +93,7 @@ class EmailQueueConsumer:
             logger.info(
                 "Processing email message",
                 extra={
-                    "correlation_id": message.correlation_id,
+                    "notification_id": message.notification_id,
                     "event": "message_received",
                     "template_id": message.template_id
                 }
@@ -117,11 +118,12 @@ class EmailQueueConsumer:
             if success:
                 # Update status
                 status = DeliveryStatus(
-                    correlation_id=message.correlation_id,
-                    status="sent",
-                    provider="email_service"
+                    notification_id=message.notification_id,
+                    status=DeliveryStatusEnum.sent,
+                    provider="email_service",
+                    timestamp=datetime.utcnow()
                 )
-                self.status_updater.update_status(status)
+                await self.status_updater.update_status(status)
 
                 processing_time = time.time() - start_time
                 DELIVERY_TIME.observe(processing_time)
@@ -129,7 +131,7 @@ class EmailQueueConsumer:
                 logger.info(
                     "Email sent successfully",
                     extra={
-                        "correlation_id": message.correlation_id,
+                        "notification_id": message.notification_id,
                         "event": "email_sent",
                         "processing_time": processing_time
                     }
@@ -144,7 +146,7 @@ class EmailQueueConsumer:
             logger.error(
                 f"Failed to process email message: {error_str}",
                 extra={
-                    "correlation_id": message.correlation_id if 'message' in locals() else "unknown",
+                    "notification_id": message.notification_id if 'message' in locals() else "unknown",
                     "event": "message_processing_failed",
                     "error": error_str
                 }
