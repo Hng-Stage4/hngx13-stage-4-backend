@@ -138,7 +138,7 @@ services:
       - DB_PASSWORD=${API_GATEWAY_DB_PASSWORD:-secret}
       - DB_NAME=${API_GATEWAY_DB_NAME:-notifications}
       - USER_SERVICE_URL=http://user-service:3001
-      - PUSH_SERVICE_URL=http://push-service:8000
+      - TEMPLATE_SERVICE_URL=http://template-service:8003
     labels:
       logging: "promtail"
       service: "api-gateway"
@@ -224,7 +224,7 @@ services:
         FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS}
         FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
         # OTHER
-        API_GATEWAY_URL: ${API_GATEWAY_URL}
+        API_GATEWAY_URL: ${API_GATEWAY_URL:-http://api-gateway:8020}
       ports:
         - "${APP_PORT:-8000}:8000"
       labels:

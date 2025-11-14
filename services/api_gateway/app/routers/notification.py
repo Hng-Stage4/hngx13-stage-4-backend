@@ -30,9 +30,7 @@ async def create_notification(
 @router.get(
     "/notifications/{notification_id}", response_model=ApiResponse[NotificationResponse]
 )
-async def get_notification_status(
-    notification_id: str, current_user: dict = Depends(get_current_user)
-):
+async def get_notification_status(notification_id: str, ):
     """
     Get notification status by ID
     """

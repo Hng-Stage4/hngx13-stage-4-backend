@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     HOST: str = "0.0.0.0"
     GATEWAY_PORT: str | int = os.getenv("GATEWAY_PORT", 8020)
+    service_name: str = "api-gateway-service"
 
     # CORS
     CORS_ORIGINS: List[str] = ["*"]
@@ -31,7 +32,7 @@ class Settings(BaseSettings):
 
     # User Service
     USER_SERVICE_URL: str = os.getenv("USER_SERVICE_URL", "http://localhost:3001")
-    TEMPLATE_SERVICE_URL: str = os.getenv("TEMPLATE_SERVICE_URL", "http://localhost:3002")
+    TEMPLATE_SERVICE_URL: str = os.getenv("TEMPLATE_SERVICE_URL", "http://localhost:8003")
 
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 100

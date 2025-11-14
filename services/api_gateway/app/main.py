@@ -13,10 +13,9 @@ from app.routers import notification, health, status
 from app.middleware.correlation_id import CorrelationIdMiddleware
 from app.middleware.error_handler import ErrorHandlerMiddleware
 from app.middleware.rate_limiter import RateLimiterMiddleware
-from app.utils.logger import setup_logger
 
-# Setup logger
-logger = setup_logger(__name__)
+from app.utils.logger import logger
+
 
 
 @asynccontextmanager
@@ -115,5 +114,5 @@ if __name__ == "__main__":
         host=settings.HOST,
         port=settings.GATEWAY_PORT,
         reload=settings.DEBUG,
-        log_level="info",
+        log_level="debug",
     )
