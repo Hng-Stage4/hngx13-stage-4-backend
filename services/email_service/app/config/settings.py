@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     # Server settings
     host: str = "0.0.0.0"
-    port: int = int(os.getenv("PORT", 8001))
+    port: int = int(os.getenv("EMAIL_PORT", 8001))
 
     # RabbitMQ settings
     rabbitmq_host: str = os.getenv("RABBITMQ_HOST", "localhost")

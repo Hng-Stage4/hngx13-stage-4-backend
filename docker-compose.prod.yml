@@ -18,6 +18,10 @@ volumes:
   loki_data:
 
 services:
+
+  # ==========================================
+  # INFRASTRUCTURE SERVICES
+  # ==========================================
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
     container_name: rabbitmq
@@ -54,6 +58,10 @@ services:
     networks:
       - notification_network
     restart: unless-stopped
+
+  # ==========================================
+  # APPLICATION DATABASES
+  # ==========================================
 
   user-service-postgres:
     image: postgres:15-alpine
@@ -116,6 +124,10 @@ services:
       - notification_network
     restart: unless-stopped
 
+  # ==========================================
+  # APPLICATION SERVICES
+  # ==========================================
+
   api-gateway:
     build:
       context: ./services/api_gateway
@@ -152,6 +164,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8020/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped
 
   user-service:
@@ -243,6 +261,12 @@ services:
           condition: service_healthy
         rabbitmq:
           condition: service_healthy
+      healthcheck:
+        test: ["CMD-SHELL", "wget -qO- http://localhost:8000/api/health || exit 1"]
+        interval: 30s
+        timeout: 10s
+        retries: 3
+        start_period: 30s
       restart: unless-stopped
 
 
@@ -257,11 +281,11 @@ services:
       - DEBUG=${DEBUG:-False}
       - HOST=0.0.0.0
       - PORT=8003
-      - DATABASE_HOST=template-service-postgres     # ✅ fix here
+      - DATABASE_HOST=template-service-postgres
       - DATABASE_PORT=5432
       - DATABASE_USER=admin
       - DATABASE_PASSWORD=secret
-      - DATABASE_NAME=template_service              # ✅ fix here
+      - DATABASE_NAME=template_service
       - REDIS_HOST=redis
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     depends_on:
@@ -275,10 +299,12 @@ services:
       - notification_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8003/api/health')"]
+      test: ["CMD-SHELL", "python3 - << 'EOF'\nimport urllib.request,sys\ntry:\n urllib.request.urlopen('http://localhost:8003/api/health')\nexcept:\n sys.exit(1)\nEOF"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 20s
+
 
   email-service:
     build:
@@ -300,7 +326,7 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
       - TEMPLATE_SERVICE_URL=http://template-service:8003
-      - API_GATEWAY_URL=http://api-gateway:3000
+      - API_GATEWAY_URL=http://api-gateway:8020
       - PORT=8001
     depends_on:
       rabbitmq:
@@ -313,10 +339,12 @@ services:
       - notification_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/api/health')"]
+      test: ["CMD-SHELL", "python3 - << 'EOF'\nimport urllib.request,sys\ntry:\n urllib.request.urlopen('http://localhost:8001/api/health')\nexcept:\n sys.exit(1)\nEOF"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 20s
+
 
   # ==========================================
   # MONITORING STACK
@@ -340,6 +368,12 @@ services:
     networks:
       - notification_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
 
   grafana:
     image: grafana/grafana:latest
@@ -360,6 +394,12 @@ services:
     depends_on:
       - prometheus
       - loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
 
   loki:
     image: grafana/loki:latest
@@ -373,6 +413,12 @@ services:
     networks:
       - notification_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
 
   promtail:
     image: grafana/promtail:latest
@@ -382,10 +428,18 @@ services:
       - /var/log:/var/log
       - ./services/logs:/app/logs
       - /var/run/docker.sock:/var/run/docker.sock
-    command: -config.file=/etc/promtail/config.yml
+    ports:
+      - "3101:3101"
+    command: -config.file=/etc/promtail/config.yml -server.http-listen-port=3101
     networks:
       - notification_network
     restart: unless-stopped
     depends_on:
       - loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3101/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
 

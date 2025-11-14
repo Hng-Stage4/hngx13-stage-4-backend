@@ -11,7 +11,6 @@ router = APIRouter()
 @router.get("/health")
 async def health_check():
     checks = {
-        "database": "healthy",  # Email service doesn't have its own DB
         "redis": "healthy",
         "rabbitmq": "healthy"
     }
