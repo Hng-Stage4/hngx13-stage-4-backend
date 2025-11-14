@@ -55,36 +55,6 @@
     },
     {
       "id": 3,
-      "title": "Service Health Status",
-      "type": "gauge",
-      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 8},
-      "targets": [
-        {
-          "expr": "user_service_health_status",
-          "legendFormat": "Health",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {"value": 0, "color": "red"},
-              {"value": 1, "color": "green"}
-            ]
-          },
-          "min": 0,
-          "max": 1,
-          "mappings": [
-            {"type": "value", "value": "0", "text": "Unhealthy"},
-            {"type": "value", "value": "1", "text": "Healthy"}
-          ]
-        }
-      }
-    },
-    {
-      "id": 4,
       "title": "Request Duration (Average)",
       "type": "graph",
       "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
@@ -101,7 +71,7 @@
       ]
     },
     {
-      "id": 5,
+      "id": 4,
       "title": "Total Request Duration",
       "type": "graph",
       "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
@@ -118,7 +88,7 @@
       ]
     },
     {
-      "id": 6,
+      "id": 5,
       "title": "Failed API Requests",
       "type": "stat",
       "gridPos": {"x": 0, "y": 16, "w": 6, "h": 4},
@@ -144,7 +114,7 @@
       }
     },
     {
-      "id": 7,
+      "id": 6,
       "title": "Failed Authentication Attempts",
       "type": "stat",
       "gridPos": {"x": 6, "y": 16, "w": 6, "h": 4},
@@ -170,7 +140,7 @@
       }
     },
     {
-      "id": 8,
+      "id": 7,
       "title": "Success Rate",
       "type": "graph",
       "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
@@ -187,7 +157,7 @@
       ]
     },
     {
-      "id": 9,
+      "id": 8,
       "title": "Recent User Service Logs",
       "type": "logs",
       "gridPos": {"x": 0, "y": 24, "w": 24, "h": 10},

@@ -26,12 +26,12 @@ scrape_configs:
           environment: 'local'
 
   - job_name: 'email-service'
-    metrics_path: '/metrics'
+    metrics_path: '/api/metrics'
     static_configs:
-      - targets: ['email-service:8002']
+      - targets: ['email-service:8001']
         labels:
           service: 'email-service'
-          environment: 'production'
+          environment: 'local'
 
   - job_name: 'push-service'
     metrics_path: '/api/metrics'
@@ -42,12 +42,12 @@ scrape_configs:
           environment: 'local'
 
   - job_name: 'template-service'
-    metrics_path: '/metrics'
+    metrics_path: '/api/metrics'
     static_configs:
-      - targets: ['template-service:8004']
+      - targets: ['template-service:8003']
         labels:
           service: 'template-service'
-          environment: 'production'
+          environment: 'local'
 
   - job_name: 'rabbitmq'
     static_configs:

@@ -297,6 +297,9 @@ services:
       - ./services/template_service:/app
     networks:
       - notification_network
+    labels:
+      logging: "promtail"
+      service: "push-service"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "python3 - << 'EOF'\nimport urllib.request,sys\ntry:\n urllib.request.urlopen('http://localhost:8003/api/health')\nexcept:\n sys.exit(1)\nEOF"]
@@ -337,6 +340,9 @@ services:
       - ./services/email_service:/app
     networks:
       - notification_network
+    labels:
+      logging: "promtail"
+      service: "push-service"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "python3 - << 'EOF'\nimport urllib.request,sys\ntry:\n urllib.request.urlopen('http://localhost:8001/api/health')\nexcept:\n sys.exit(1)\nEOF"]
