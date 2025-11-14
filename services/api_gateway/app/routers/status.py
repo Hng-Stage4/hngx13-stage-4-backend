@@ -15,7 +15,6 @@ controller = StatusController()
 async def update_notification_status(
     notification_type: str,
     status_update: StatusUpdateRequest,
-    current_user: dict = Depends(get_current_user),
 ):
     """
     Update notification delivery status

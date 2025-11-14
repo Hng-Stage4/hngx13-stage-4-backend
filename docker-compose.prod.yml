@@ -8,7 +8,6 @@ volumes:
   redis_data:
   
   # Per-Service Postgres Data
-  api_gateway_postgres_data:
   push_service_postgres_data:
   user_service_postgres_data:
   template_service_postgres_data:
@@ -56,6 +55,46 @@ services:
       - notification_network
     restart: unless-stopped
 
+  user-service-postgres:
+    image: postgres:15-alpine
+    container_name: user-service-postgres
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_USER=${USER_SERVICE_DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${USER_SERVICE_DB_PASSWORD:-postgres}
+      - POSTGRES_DB=${USER_SERVICE_DB_NAME:-notification_db}
+    volumes:
+      - user_service_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${USER_SERVICE_DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - notification_network
+    restart: unless-stopped
+
+  push-service-postgres:
+    image: postgres:15-alpine
+    container_name: push-service-postgres
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
+    volumes:
+      - push_service_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - notification_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   template-service-postgres:
     image: postgres:15-alpine
     container_name: template-service-postgres
@@ -77,33 +116,13 @@ services:
       - notification_network
     restart: unless-stopped
 
-  user-service-postgres:
-    image: postgres:15-alpine
-    container_name: user-service-postgres
-    ports:
-      - "5434:5432"
-    environment:
-      - POSTGRES_USER=${USER_SERVICE_DB_USER:-postgres}
-      - POSTGRES_PASSWORD=${USER_SERVICE_DB_PASSWORD:-postgres}
-      - POSTGRES_DB=${USER_SERVICE_DB_NAME:-notification_db}
-    volumes:
-      - user_service_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${USER_SERVICE_DB_USER:-postgres}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - notification_network
-    restart: unless-stopped
-
   api-gateway:
     build:
       context: ./services/api_gateway
       dockerfile: Dockerfile
     container_name: api-gateway
     ports:
-      - "3000:3000"
+      - "8020:8020"
     environment:
       - DEBUG=${DEBUG:-False}
       - RABBITMQ_HOST=rabbitmq
@@ -119,7 +138,7 @@ services:
       - DB_PASSWORD=${API_GATEWAY_DB_PASSWORD:-secret}
       - DB_NAME=${API_GATEWAY_DB_NAME:-notifications}
       - USER_SERVICE_URL=http://user-service:3001
-      - PUSH_SERVICE_URL=http://push-service:8000
+      - TEMPLATE_SERVICE_URL=http://template-service:8003
     labels:
       logging: "promtail"
       service: "api-gateway"
@@ -174,6 +193,59 @@ services:
       start_period: 40s
     restart: unless-stopped
 
+  push-service:
+      build:
+        context: ./services/push_service
+        dockerfile: Dockerfile
+      container_name: push-service
+      environment:
+        APP_ENV: ${APP_ENV}
+        APP_DEBUG: ${APP_DEBUG}
+        DB_HOST: ${DB_HOST}
+        DB_DATABASE: ${DB_DATABASE}
+        DB_USERNAME: ${DB_USERNAME}
+        DB_PASSWORD: ${DB_PASSWORD}
+        # ADD THESE REDIS VARIABLES
+        REDIS_HOST: redis
+        REDIS_PORT: 6379
+        REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+        REDIS_CLIENT: phpredis
+        REDIS_DB: 0
+        # RABBITMQ VARIABLES
+        RABBITMQ_HOST: rabbitmq
+        RABBITMQ_PORT: 5672
+        RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+        RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+        RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+        RABBITMQ_QUEUE_PUSH: ${RABBITMQ_QUEUE_PUSH:-push.queue}
+        RABBITMQ_QUEUE_FAILED: ${RABBITMQ_QUEUE_FAILED:-failed.queue}
+        RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-notifications.direct}
+        # FIREBASE
+        FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS}
+        FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+        # OTHER
+        API_GATEWAY_URL: ${API_GATEWAY_URL:-http://api-gateway:8020}
+      ports:
+        - "${APP_PORT:-8000}:8000"
+      labels:
+        logging: "promtail"
+        service: "push-service"
+      volumes:
+        - ./services/push_service:/var/www
+        - ./services/push_service/logs:/app/logs 
+        - ./services/push_service/firebase-credentials.json:/var/www/firebase-credentials.json:ro
+      networks:
+        - notification_network 
+      depends_on:
+        push-service-postgres:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+        rabbitmq:
+          condition: service_healthy
+      restart: unless-stopped
+
+
   template-service:
     build:
       context: ./services/template_service
@@ -185,7 +257,11 @@ services:
       - DEBUG=${DEBUG:-False}
       - HOST=0.0.0.0
       - PORT=8003
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-secret}@template-service-postgres:5432/template_service
+      - DATABASE_HOST=template-service-postgres     # ✅ fix here
+      - DATABASE_PORT=5432
+      - DATABASE_USER=admin
+      - DATABASE_PASSWORD=secret
+      - DATABASE_NAME=template_service              # ✅ fix here
       - REDIS_HOST=redis
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     depends_on:
@@ -242,116 +318,74 @@ services:
       timeout: 10s
       retries: 3
 
-
-  # # push-service:
-  # #   build:
-  # #     context: ./services/push_service
-  # #     dockerfile: Dockerfile
-  # #   container_name: push-service
-  # #   ports:
-  # #     - "8001:8000"
-  # #   environment:
-  # #     - APP_ENV=${APP_ENV:-production}
-  # #     - APP_DEBUG=${APP_DEBUG:-false}
-  # #     - DB_HOST=push-service-postgres
-  # #     - DB_PORT=5432
-  # #     - DB_DATABASE=${PUSH_SERVICE_DB_NAME:-push_db}
-  # #     - DB_USERNAME=${PUSH_SERVICE_DB_USER:-admin}
-  # #     - DB_PASSWORD=${PUSH_SERVICE_DB_PASSWORD:-secret}
-  # #     - REDIS_HOST=redis
-  # #     - REDIS_PORT=6379
-  # #     - REDIS_DB=1
-  # #     - RABBITMQ_HOST=rabbitmq
-  # #     - RABBITMQ_PORT=5672
-  # #     - RABBITMQ_USER=${RABBITMQ_USER:-guest}
-  # #     - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
-  # #     - FIREBASE_CREDENTIALS=${FIREBASE_CREDENTIALS}
-  # #     - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
-  # #     - API_GATEWAY_URL=http://api-gateway:8000
-  # #   labels:
-  # #     logging: "promtail"
-  # #     service: "push-service"
-  # #   volumes:
-  # #     - ./services/push_service:/var/www
-  # #     - ./logs/push_service:/app/logs
-  # #     - ./services/push_service/firebase-credentials.json:/var/www/firebase-credentials.json:ro
-  # #   networks:
-  # #     - notification_network
-  # #   depends_on:
-  # #     push-service-postgres:
-  # #       condition: service_healthy
-  # #     redis:
-  # #       condition: service_healthy
-  # #     rabbitmq:
-  # #       condition: service_healthy
-  # #   restart: unless-stopped
-
-  # # # ==========================================
-  # # # MONITORING STACK
-  # # # ==========================================
+  # ==========================================
+  # MONITORING STACK
+  # ==========================================
   
-  # # prometheus:
-  # #   image: prom/prometheus:latest
-  # #   container_name: prometheus
-  # #   ports:
-  # #     - "9090:9090"
-  # #   volumes:
-  # #     - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-  # #     - prometheus_data:/prometheus
-  # #   command:
-  # #     - '--config.file=/etc/prometheus/prometheus.yml'
-  # #     - '--storage.tsdb.path=/prometheus'
-  # #     - '--web.console.libraries=/etc/prometheus/console_libraries'
-  # #     - '--web.console.templates=/etc/prometheus/consoles'
-  # #     - '--web.enable-lifecycle'
-  # #   networks:
-  # #     - notification_network
-  # #   restart: unless-stopped
 
-  # # grafana:
-  # #   image: grafana/grafana:latest
-  # #   container_name: grafana
-  # #   ports:
-  # #     - "3000:3000"
-  # #   environment:
-  # #     - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
-  # #     - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
-  # #     - GF_USERS_ALLOW_SIGN_UP=false
-  # #   volumes:
-  # #     - grafana_data:/var/lib/grafana
-  # #     - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
-  # #     - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
-  # #   networks:
-  # #     - notification_network
-  # #   restart: unless-stopped
-  # #   depends_on:
-  # #     - prometheus
-  # #     - loki
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./services/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - notification_network
+    restart: unless-stopped
 
-  # # loki:
-  # #   image: grafana/loki:latest
-  # #   container_name: loki
-  # #   ports:
-  # #     - "3100:3100"
-  # #   volumes:
-  # #     - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml
-  # #     - loki_data:/loki
-  # #   command: -config.file=/etc/loki/local-config.yaml
-  # #   networks:
-  # #     - notification_network
-  # #   restart: unless-stopped
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./services/monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./services/monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - notification_network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+      - loki
 
-  # # promtail:
-  #   image: grafana/promtail:latest
-  #   container_name: promtail
-  #   volumes:
-  #     - ./monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml
-  #     - /var/log:/var/log
-  #     - ./logs:/app/logs
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  #   command: -config.file=/etc/promtail/config.yml
-  #   networks:
-  #     - notification_network
-  #   restart: unless-stopped
-  #   depends_on:
-  #     - loki
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./services/monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - notification_network
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    volumes:
+      - ./services/monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml
+      - /var/log:/var/log
+      - ./services/logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - notification_network
+    restart: unless-stopped
+    depends_on:
+      - loki
+

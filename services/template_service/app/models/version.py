@@ -7,12 +7,18 @@ class Version(Base):
     __tablename__ = "versions"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    template_logical_id = Column(String, ForeignKey("templates.logical_id"), nullable=False, index=True)
+    # template_logical_id = Column(String, ForeignKey("templates.logical_id"), nullable=False, index=True)
+
+    template_logical_id = Column(
+        String,
+        ForeignKey("templates.logical_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
     version_number = Column(Integer, nullable=False)
     subject = Column(String, nullable=True)
     body = Column(Text, nullable=False)
     changes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Relationship
     template = relationship("Template", back_populates="versions")
